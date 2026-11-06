@@ -409,13 +409,13 @@ export const pet = {
         d.dead = Math.random() < 0.6;
         for (let k = this.foam.length - 1; k >= 0; k--) {
           if (dist(this.foam[k].x, this.foam[k].y, lx, ly) < this.foam[k].r + 8) {
-            this.foam[k].r -= 2;
-            if (this.foam[k].r < 5) this.foam.splice(k, 1);
+            this.foam[k].r -= 4;
+            if (this.foam[k].r < 6) this.foam.splice(k, 1);
             break;
           }
         }
         for (const m of this.mud) {
-          if (dist(m.x, m.y, lx, ly) < m.r + 7) m.a -= m.a < 0.3 ? 0.06 : 0.012;
+          if (dist(m.x, m.y, lx, ly) < m.r + 9) m.a -= m.a < 0.3 ? 0.08 : 0.03;
         }
         this.wet = Math.min(1, this.wet + dt * 0.3);
       }

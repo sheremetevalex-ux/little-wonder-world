@@ -281,8 +281,8 @@ function paintTile(c, cat, id, col) {
   if (key === 'dress') { paintDressTile(c, id, color(DRESS)); return; }
   if (key === 'hair') {
     c.save();
-    c.translate(0, 14);
-    c.scale(1.2, 1.2);
+    c.translate(0, 8);
+    c.scale(1.05, 1.05);
     drawHairTile(c, id, col && col !== 'preview' ? col : '#E98B3E', '#FBD3B6');
     c.restore();
     return;
@@ -663,7 +663,11 @@ export const dress = {
           c.fill();
         }
       } else {
+        c.save();
+        rr(c, -T / 2 + 2, -T / 2 + 2, T - 4, T - 4, 18);
+        c.clip();
         paintTile(c, CATS[this.cat], it.id, this.colOf(it));
+        c.restore();
       }
       if (this.fresh.has(this.cat + ':' + it.id)) {
         const k = 0.6 + 0.4 * Math.sin(this.t * 5);

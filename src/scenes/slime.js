@@ -152,7 +152,7 @@ export const slime = {
     this.t += dt;
     const { gw, gh, h, v } = this;
     // Step the height field: thick, slow, gooey waves
-    const sub = 2, c2 = 0.13, damp = 0.962, pull = 0.003;
+    const sub = app.fps < 40 ? 1 : 2, c2 = 0.13, damp = 0.962, pull = 0.003;
     for (let s = 0; s < sub; s++) {
       for (let y = 1; y < gh - 1; y++) {
         let i = 1 + y * gw;
@@ -169,7 +169,7 @@ export const slime = {
       dp.y += dp.vy * dt;
       if (dp.y >= dp.ty) {
         dp.done = true;
-        this.paintDye(dp.x, dp.ty, dp.rgb, 34);
+        this.paintDye(dp.x, dp.ty, dp.rgb, 46);
         this.push({ x: dp.x, y: dp.ty, force: 0.4 }, 0, 0, 3.4);
         audio.sfx('blup', { rate: rand(0.8, 1.3), vol: 0.9 });
         audio.sfx('squish', { rate: rand(0.9, 1.1), vol: 0.6 });

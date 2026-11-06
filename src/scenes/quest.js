@@ -463,7 +463,10 @@ class Pairs {
     const top = Math.max(app.safeTop, 8) + 82, bottom = H - 26 - app.safeBottom * 0.5;
     const cw = Math.min((W - 24) / cols, ((bottom - top) / rows) * 0.86), ch = Math.min((bottom - top) / rows, cw * 1.18);
     const gx = W / 2 - (cw * (cols - 1)) / 2, gy = (top + bottom) / 2 - (ch * (rows - 1)) / 2;
-    this.cards = deck.map((id, i) => ({ id, x: gx + (i % cols) * cw, y: gy + Math.floor(i / cols) * ch, w: cw * 0.9, h: ch * 0.9, f: 0, face: false, done: false, sq: new Spring(1, 300, 11), a: 0 }));
+    // A short last row is centred rather than left hanging
+    const lastCount = n % cols || cols;
+    const rowX = (i) => (Math.floor(i / cols) === rows - 1 ? W / 2 - (cw * (lastCount - 1)) / 2 + (i % cols) * cw : gx + (i % cols) * cw);
+    this.cards = deck.map((id, i) => ({ id, x: rowX(i), y: gy + Math.floor(i / cols) * ch, w: cw * 0.9, h: ch * 0.9, f: 0, face: false, done: false, sq: new Spring(1, 300, 11), a: 0 }));
     this.cards.forEach((q, i) => tween(q, { a: 1 }, 0.4, { ease: E.back, delay: i * 0.04 }));
     this.open = [];
     this.lock = false;
