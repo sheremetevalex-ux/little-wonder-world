@@ -8,6 +8,12 @@ import { save } from '../core/save.js';
 import { P, ell, rr, clamp, softStar, heart, rand, sprite } from '../core/draw.js';
 import { softBack } from '../art/world.js';
 import { drawCreature, FRIEND_IDS, FRIENDS, blinkAt } from '../art/creatures.js';
+import { meadowList } from './hub.js';
+
+// All the friends live in one big house, so there is room for every one of them.
+// A heart on a window means that friend is out on the meadow; tap to swap.
+const meadowCap = () => (app.W > 900 ? 10 : app.W > 640 ? 8 : 5);
+const WALLS = ['#FFD9E4', '#FFF0B8', '#CFF3E8', '#D9E8FF', '#EADBFF', '#FFE1C9'];
 
 export const album = {
   tint: '#FFC7A8',
@@ -72,7 +78,7 @@ export const album = {
   grid() {
     const W = this.W;
     const friends = this.tab === 'friends';
-    const cols = friends ? Math.max(4, Math.floor(W / 92)) : Math.max(2, Math.floor(W / 170));
+    const cols = friends ? Math.max(4, Math.floor(W / 125)) : Math.max(2, Math.floor(W / 170));
     const gap = (W - 16) / cols;
     const top = Math.max(app.safeTop, 10) + 84;
     return { cols, gap, top, h: friends ? gap * 1.02 : gap * 1.24 };
@@ -114,6 +120,7 @@ export const album = {
 
     const g = this.grid(), friends = this.tab === 'friends';
     const owned = new Set(save.data.friends);
+    const out = new Set(meadowList(meadowCap()));
     c.save();
     c.beginPath();
     c.rect(0, g.top - 12, W, H);
@@ -124,14 +131,19 @@ export const album = {
         const x = 8 + g.gap * (col + 0.5), y = g.top + g.h * (row + 0.5) - this.scroll;
         if (y < -60 || y > H + 60) return;
         const has = owned.has(id);
-        c.fillStyle = has ? 'rgba(255,255,255,.75)' : 'rgba(150,120,190,.22)';
-        ell(c, x, y, g.gap * 0.46);
+        // The window: a lit room for someone at home, a dark one for a friend not yet found
+        const wr = g.gap * 0.45;
+        c.fillStyle = '#FFF9F1';
+        rr(c, x - wr - 3, y - wr * 1.04 - 3, wr * 2 + 6, wr * 2.08 + 6, wr * 0.42);
+        c.fill();
+        c.fillStyle = has ? WALLS[i % WALLS.length] : '#9C8BC4';
+        rr(c, x - wr, y - wr * 1.04, wr * 2, wr * 2.08, wr * 0.38);
         c.fill();
         const hop = this.hops.get(id);
         c.save();
         c.translate(x, y - 2 + (hop ? hop.y : 0));
         if (has) {
-          drawCreature(c, id, { R: g.gap * 0.26, t: this.t + i, blink: blinkAt(this.t, i), eyes: hop ? 'happy' : 'open', mouthOpen: hop ? 0.7 : 0 });
+          drawCreature(c, id, { R: g.gap * 0.26, t: this.t + i, blink: blinkAt(this.t, i), eyes: hop ? 'happy' : 'open', mouthOpen: hop ? 0.7 : 0, shiny: save.data.shiny.includes(id) });
         } else {
           // Shadow: the shape is a riddle, and each egg might solve it
           const size = g.gap * 0.86;
@@ -151,6 +163,15 @@ export const album = {
           c.fill();
         }
         c.restore();
+        if (has && out.has(id)) {
+          const k = 1 + Math.sin(this.t * 3 + i) * 0.08;
+          heart(c, x + g.gap * 0.31, y - g.gap * 0.31, 10 * k);
+          c.fillStyle = P.rose;
+          c.fill();
+          c.lineWidth = 2;
+          c.strokeStyle = '#fff';
+          c.stroke();
+        }
       });
     } else {
       const ph = save.data.photos;
@@ -208,6 +229,21 @@ export const album = {
     }
   },
 
+  toggleMeadow(id) {
+    const cap = meadowCap();
+    const cur = meadowList(cap);
+    if (cur.includes(id)) {
+      // Back home; at least one friend always stays out on the meadow
+      if (cur.length > 1) save.data.meadow = cur.filter((f) => f !== id).slice(0, cap);
+      audio.note('marimba', 67, { vol: 0.4 });
+    } else {
+      // Come out to play: whoever has been out longest goes home to rest
+      save.data.meadow = [id, ...cur].slice(0, cap);
+      audio.sparkle(2, 3, 0.3);
+    }
+    save.touch();
+  },
+
   down(p) {
     if (this.big) {
       this.big = null;
@@ -239,6 +275,7 @@ export const album = {
       if (save.data.friends.includes(id)) {
         this.hops.set(id, { y: -1, v: -330 });
         audio.voice('giggle', FRIENDS[id].voice);
+        this.toggleMeadow(id);
         fx.hearts(p.x, p.y - 20, 4);
         haptic();
       } else {

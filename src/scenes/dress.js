@@ -11,7 +11,7 @@ import { softBack } from '../art/world.js';
 import { drawCreature, FRIENDS, blinkAt } from '../art/creatures.js';
 
 // Gifts she receives by hatching eggs. They simply aren't shown until earned.
-const LOCKED = ['dress:mermaid', 'dress:butterfly', 'dress:ice', 'dress:princess', 'hair:space', 'hair:braid', 'head:horn', 'head:starband', 'head:witch', 'back:rainbow', 'back:angel', 'hand:kitten', 'hand:mirror', 'hand:lolli', 'shoes:bunny', 'shoes:sparkle', 'stage:candy', 'stage:sea'];
+const LOCKED = ['dress:mermaid', 'dress:butterfly', 'dress:ice', 'dress:princess', 'hair:space', 'hair:braid', 'head:horn', 'head:starband', 'head:witch', 'back:rainbow', 'back:angel', 'hand:kitten', 'hand:mirror', 'hand:lolli', 'shoes:bunny', 'shoes:sparkle', 'stage:candy', 'stage:sea', 'dress:astro', 'hair:afro', 'head:astro', 'dress:sequin', 'hair:longcurl', 'hand:umbrella', 'shoes:skates', 'dress:beesuit', 'hair:mohawk', 'head:pirate'];
 
 export function unlockNextItem() {
   const u = save.data.unlocked;
@@ -289,7 +289,7 @@ function paintTile(c, cat, id, col) {
   }
   if (key === 'head') {
     c.save();
-    const off = { tiara: [0.8, 148], crown: [0.62, 160], flowers: [0.62, 128], bow: [0.92, 144], cat: [0.74, 136], bunny: [0.62, 180], horn: [0.72, 168], witch: [0.46, 170], sunhat: [0.5, 142], phones: [0.5, 88], starband: [0.72, 160] }[id] || [0.6, 140];
+    const off = { tiara: [0.8, 148], crown: [0.62, 160], flowers: [0.62, 128], bow: [0.92, 144], cat: [0.74, 136], bunny: [0.62, 180], horn: [0.72, 168], witch: [0.46, 170], sunhat: [0.5, 142], phones: [0.5, 88], starband: [0.72, 160], cap: [0.66, 142], beanie: [0.66, 146], chef: [0.5, 172], pirate: [0.7, 138], astro: [0.46, 94] }[id] || [0.6, 140];
     c.scale(off[0], off[0]);
     c.translate(id === 'bow' ? -30 : 0, off[1]);
     HEADWEAR[id].draw(c, color(HEADWEAR), 0, 0);
@@ -346,7 +346,7 @@ function stageSprite(id, W, H, fl) {
 export const dress = {
   tint: '#FF9FC3',
 
-  enter() {
+  enter(args) {
     const d = save.data;
     d.doll = { ...DEFAULT_DOLL, stage: 'palace', ...(d.doll || {}) };
     this.d = d.doll;
@@ -367,6 +367,8 @@ export const dress = {
     this.layout();
     music.play('dress');
     if (!d.seen.dress) hint.set({ from: [this.tileX(1), this.rowY], to: [this.cx, this.dollY - 40], delay: 1.6 });
+    // Straight from the atelier: her new dress goes down the runway
+    if (args && args.show) wait(0.9, () => this.startShow());
   },
 
   exit() { save.touch(); },
@@ -436,7 +438,10 @@ export const dress = {
     if (this.cat === 'face') {
       return [...SKINS.map((c, i) => ({ id: 'skin' + i, skin: i })), ...EYES.map((c, i) => ({ id: 'eye' + i, eye: i }))];
     }
-    return Object.keys(cat.table).filter((id) => !LOCKED.includes(this.cat + ':' + id) || u.includes(this.cat + ':' + id)).map((id) => ({ id }));
+    const ids = Object.keys(cat.table).filter((id) => !LOCKED.includes(this.cat + ':' + id) || u.includes(this.cat + ':' + id));
+    // Dresses she made herself come first, newest at the front
+    if (this.cat === 'dress') ids.sort((a, b) => (DRESS[b].custom ? 1 : 0) - (DRESS[a].custom ? 1 : 0) || (DRESS[a].custom ? ids.indexOf(b) - ids.indexOf(a) : 0));
+    return ids.map((id) => ({ id }));
   },
 
   activeColors() {

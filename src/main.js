@@ -10,11 +10,17 @@ import { paint } from './scenes/paint.js';
 import { garden } from './scenes/garden.js';
 import { quest } from './scenes/quest.js';
 import { album } from './scenes/album.js';
+import { sing } from './scenes/sing.js';
+import { cafe } from './scenes/cafe.js';
+import { salon } from './scenes/salon.js';
+import { atelier } from './scenes/atelier.js';
+import { registerCustomDress } from './art/doll.js';
 import { setupPWA } from './pwa.js';
 import { save } from './core/save.js';
 import { audio } from './core/audio.js';
 
-Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album });
+Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album, sing, cafe, salon, atelier });
+(save.data.myDresses || []).forEach((d) => registerCustomDress(d.id, d.url));
 window.__wonder = app;
 window.__go = go;
 window.__save = save;

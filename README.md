@@ -1,6 +1,6 @@
 # Little Wonder World
 
-A wordless world of games for small children: dress-up with a runway show, a pet to bathe, feed and put to bed, a bakery, a pop toy, real-feeling slime, glowing mirror painting, a singing garden and a journey of 18 challenges. New friends hatch from eggs and move into the meadow.
+A wordless world of twelve games for small children: dress-up with a runway show, a pet to bathe, feed and put to bed, a bakery, a pop toy, real-feeling slime, glowing mirror painting, a singing garden, a journey of 18 challenges, rubber faces that sing when you stretch their mouths, a café with five dishes to cook for friends, a hair salon with real strands to cut, grow, curl and dye, and an atelier where she paints a dress that joins her wardrobe. New friends hatch from eggs and move into the meadow.
 
 **Play:** https://sheremetevalex-ux.github.io/little-wonder-world/
 
@@ -22,10 +22,12 @@ Plain ES modules and one `<canvas>`, with no runtime dependencies. All art and a
 | `src/scenes/` | one file per activity, plus the hub, splash and album |
 | `tools/build.mjs` | assembles `dist/`, stamps the offline cache version |
 | `tools/make-icons.mjs` | re-renders icons and launch images from the game art |
-| `tests/monkey.mjs` | random-finger test on iPhone, iPad and Android emulation |
+| `tests/monkey.mjs` | random-finger test on iPhone, iPad and Android emulation, with the sound muted |
+
+**Friends:** everyone found lives in the house in the album, and a heart on a window means that friend is out on the meadow (tap to swap). Once all 24 are found, eggs bring them back wearing a golden crown, a second collection of the same size.
 
 **Add a game:** create a scene (`enter`, `update`, `draw`, `down`, `move`, `up`), register it in `src/main.js`, and add it to `WORLDS` in `src/scenes/hub.js`.
 
-**Run locally:** `npm start`, then open http://localhost:5199.
+**Run locally:** `npm start`, then open http://localhost:5199. `PORT=5198 OUT=some/folder npm test` runs the random-finger test against another port and saves its screenshots elsewhere.
 
 **Release:** push to `main`. GitHub Actions builds and deploys; installed apps pick up the new version on their next launch. Hosting on GitHub Pages is free.

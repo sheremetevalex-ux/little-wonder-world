@@ -2,6 +2,7 @@
 import { audio } from './audio.js';
 import { fx } from './fx.js';
 import { P, E, clamp, dist, ell, gloss, light, dark, clay, setSpriteScale, TAU, rand, groundShadow, rr, alpha } from './draw.js';
+import { measureViewport } from './viewport.js';
 
 export const app = {
   W: 390, H: 844, scale: 1, pr: 2, t: 0, dt: 1 / 60,
@@ -209,6 +210,12 @@ function setScene(name, args) {
   app.scene = app.scenes[name];
   app.scene.name = name;
   app.scene.buttons = [];
+  // Whatever peeks around the canvas (rubber-banding, a rotating screen) matches the scene
+  const tint = app.scene.tint;
+  if (tint) {
+    document.documentElement.style.background = tint;
+    document.body.style.background = tint;
+  }
   if (app.scene.enter) app.scene.enter(args);
 }
 
@@ -342,8 +349,26 @@ function readSafe() {
   return { t, b };
 }
 
+const UA = navigator.userAgent;
+const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+function isStandalone() {
+  return navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches;
+}
+function currentViewport() {
+  const de = document.documentElement;
+  return measureViewport({
+    innerW: window.innerWidth, innerH: window.innerHeight, clientW: de.clientWidth, clientH: de.clientHeight,
+    screenW: window.screen.width, screenH: window.screen.height, ios: IS_IOS, standalone: isStandalone()
+  });
+}
+let lastVW = 0, lastVH = 0;
+
 function layout() {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const { w: vw, h: vh } = currentViewport();
+  lastVW = vw;
+  lastVH = vh;
+  document.documentElement.style.height = vh + 'px';
+  document.body.style.height = vh + 'px';
   // One logical space for phones and tablets alike: at least 390 wide and 694
   // tall, stretched to fill the screen. Scenes lay out from app.W / app.H.
   const prevW = app.W, prevH = app.H;
@@ -399,6 +424,12 @@ function frame(now) {
   app.frame++;
   app.fps += (1 / Math.max(raw || 1 / 60, 0.001) - app.fps) * 0.05;
 
+  // iOS can settle on its final window size after every event has fired: keep watching
+  if (app.frame % 40 === 0) {
+    const v = currentViewport();
+    if (v.w !== lastVW || v.h !== lastVH) layout();
+  }
+
   // If an old phone can't keep up, trade a little sharpness for smoothness
   if (raw > 0 && raw < 0.2) {
     slowFor = app.fps < 38 ? slowFor + dt : Math.max(0, slowFor - dt);
@@ -438,6 +469,7 @@ export function start(first) {
   layout();
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', () => setTimeout(layout, 200));
+  window.addEventListener('pageshow', layout);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', layout);
 
   cv.addEventListener('pointerdown', onDown);

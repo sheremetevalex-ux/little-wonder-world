@@ -5,6 +5,8 @@ const CONFIGS = [
   ['chromium', 'Pixel 7', 'pix'], ['chromium', 'Galaxy S9+', 'gal']
 ];
 const only = process.argv[2];
+const OUT = process.env.OUT || '/tmp';
+const PORT = process.env.PORT || 5199;
 for (const [eng, dev, tag] of CONFIGS) {
   if (only && !tag.startsWith(only)) continue;
   const browser = await (eng === 'webkit' ? webkit : chromium).launch();
@@ -13,20 +15,22 @@ for (const [eng, dev, tag] of CONFIGS) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message + ' ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto('http://localhost:5199/');
+  await page.goto(`http://localhost:${PORT}/`);
+  // The test taps for real, which unlocks sound: keep it off the speakers of whoever runs it
+  await page.evaluate('window.__audio.master && (window.__audio.master.gain.value = 0)');
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `/tmp/wonder-${tag}-splash.png` });
+  await page.screenshot({ path: `${OUT}/wonder-${tag}-splash.png` });
   const vp = page.viewportSize();
   await page.touchscreen.tap(vp.width / 2, vp.height / 2);
   await page.waitForTimeout(1400);
-  await page.screenshot({ path: `/tmp/wonder-${tag}-hub.png` });
+  await page.screenshot({ path: `${OUT}/wonder-${tag}-hub.png` });
   await page.evaluate(`Object.assign(window.__save.data,{friends:['moko','bunny','kitty','frog','panda','unicorn','dragon','bear','chick'],quest:18,stars:2})`);
   // Random-finger monkey test across every scene: a four-year-old is a great fuzzer
-  const scenes = ['dress', 'pet', 'cake', 'popit', 'slime', 'paint', 'garden', 'quest', 'album', 'hub'];
+  const scenes = ['dress', 'pet', 'cake', 'popit', 'slime', 'paint', 'garden', 'quest', 'sing', 'cafe', 'salon', 'atelier', 'album', 'hub'];
   for (const name of scenes) {
     await page.evaluate(`window.__go('${name}')`);
     await page.waitForTimeout(850);
-    await page.screenshot({ path: `/tmp/wonder-${tag}-${name}.png` });
+    await page.screenshot({ path: `${OUT}/wonder-${tag}-${name}.png` });
     await page.evaluate(`(async()=>{
       const c=document.getElementById('game');
       const ev=(t,x,y,id)=>c.dispatchEvent(new PointerEvent(t,{pointerId:id,clientX:x,clientY:y,bubbles:true,cancelable:true,isPrimary:id===1,pointerType:'touch',buttons:1}));
@@ -44,7 +48,7 @@ for (const [eng, dev, tag] of CONFIGS) {
     await page.waitForTimeout(300);
     const fps = await page.evaluate('window.__wonder.fps');
     const sc = await page.evaluate('window.__wonder.scene.name');
-    console.log(tag, name.padEnd(7), 'in', sc.padEnd(7), 'fps', fps.toFixed(0));
+    console.log(tag, name.padEnd(8), 'in', sc.padEnd(8), 'fps', fps.toFixed(0));
   }
   console.log(tag, errors.length ? 'ERRORS\n' + [...new Set(errors)].join('\n') : 'no errors');
   await browser.close();

@@ -1,4 +1,4 @@
-// Hand-drawn illustrations for the eight worlds in the main bubbles. Drawn in a
+// Hand-drawn illustrations for the twelve worlds in the main bubbles. Drawn in a
 // roughly 100x100 box around the origin; no text anywhere, the picture says it all.
 import { P, ell, rr, clay, light, dark, gloss, vgrad, hgrad, softStar, heart, sparkleShape, TAU, spline, alpha } from '../core/draw.js';
 import { drawCreature } from './creatures.js';
@@ -233,6 +233,191 @@ export const ICONS = {
     c.stroke();
     ell(c, 28.5, -6, 5, 4, -0.3);
     c.fill();
+  },
+  sing(c, t) {
+    // A round face mid-song, mouth stretched wide
+    const k = Math.sin((t || 0) * 3) * 2;
+    c.fillStyle = clay(c, 0, 0, 40, '#FFB3C7');
+    ell(c, 0, -2, 38, 36 + k * 0.6);
+    c.fill();
+    c.fillStyle = '#fff';
+    for (const s of [-1, 1]) {
+      ell(c, s * 15, -16, 9.5, 11);
+      c.fill();
+    }
+    c.fillStyle = '#3F2C66';
+    for (const s of [-1, 1]) {
+      ell(c, s * 15, -15, 5.6, 6.6);
+      c.fill();
+    }
+    c.fillStyle = '#fff';
+    for (const s of [-1, 1]) {
+      ell(c, s * 15 - 2, -18, 2);
+      c.fill();
+    }
+    c.fillStyle = '#6E2448';
+    ell(c, 0, 13, 17, 16 + k);
+    c.fill();
+    c.fillStyle = '#FF7FA2';
+    ell(c, 0, 22 + k * 0.6, 11, 7);
+    c.fill();
+    c.fillStyle = '#FFF';
+    rr(c, -8, -2 - k * 0.5, 16, 5, 2.5);
+    c.fill();
+    // Two notes fly away
+    c.fillStyle = '#7C5AE6';
+    c.strokeStyle = '#7C5AE6';
+    c.lineWidth = 2.8;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(38, -18);
+    c.lineTo(38, -38);
+    c.lineTo(45, -34);
+    c.stroke();
+    ell(c, 34, -18, 4.6, 3.6, -0.3);
+    c.fill();
+    c.fillStyle = '#FF5C8F';
+    c.strokeStyle = '#FF5C8F';
+    c.beginPath();
+    c.moveTo(-36, -26);
+    c.lineTo(-36, -42);
+    c.stroke();
+    ell(c, -40, -26, 4.2, 3.2, -0.3);
+    c.fill();
+  },
+  cafe(c) {
+    // A slice of pizza beside a tall ice cream
+    c.save();
+    c.translate(-13, 6);
+    c.rotate(-0.12);
+    c.fillStyle = '#E9B066';
+    rr(c, -24, -28, 48, 13, 6.5);
+    c.fill();
+    c.fillStyle = '#FFD86B';
+    c.beginPath();
+    c.moveTo(-21, -19);
+    c.lineTo(21, -19);
+    c.lineTo(0, 36);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#E8473F';
+    for (const [x, y, r] of [[-9, -8, 5.6], [8, -5, 5.6], [0, 11, 5]]) {
+      ell(c, x, y, r);
+      c.fill();
+    }
+    c.fillStyle = '#58B562';
+    ell(c, -2, -14, 2.4, 1.6, 0.6);
+    c.fill();
+    c.restore();
+    c.save();
+    c.translate(22, 6);
+    c.fillStyle = '#E9B066';
+    c.beginPath();
+    c.moveTo(-12, -6);
+    c.lineTo(12, -6);
+    c.lineTo(0, 38);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = 'rgba(140,80,30,.4)';
+    c.lineWidth = 1.6;
+    c.beginPath();
+    c.moveTo(-8, 2); c.lineTo(4, 22); c.moveTo(8, 2); c.lineTo(-4, 22);
+    c.stroke();
+    c.fillStyle = clay(c, 0, -14, 14, '#FF9FC3');
+    ell(c, 0, -14, 14);
+    c.fill();
+    c.fillStyle = clay(c, 0, -32, 12, '#BFE9FF');
+    ell(c, 0, -32, 12);
+    c.fill();
+    c.fillStyle = clay(c, 0, -46, 5, '#E8314F');
+    ell(c, 0, -46, 5);
+    c.fill();
+    c.restore();
+  },
+  salon(c) {
+    // A swoosh of hair and open scissors
+    c.lineCap = 'round';
+    ['#FF8FC4', '#FFB54D', '#B48BFF', '#6FC6FF'].forEach((col, i) => {
+      c.strokeStyle = col;
+      c.lineWidth = 9;
+      c.beginPath();
+      c.moveTo(-30 + i * 8, -38 + i * 2);
+      c.bezierCurveTo(-52 + i * 10, -6, -8 + i * 8, 2, -32 + i * 12, 38 - i * 2);
+      c.stroke();
+    });
+    c.save();
+    c.translate(20, 6);
+    c.rotate(0.2);
+    c.strokeStyle = '#C7CCE8';
+    c.lineWidth = 6;
+    c.beginPath();
+    c.moveTo(-3, 6); c.lineTo(10, -36);
+    c.moveTo(3, 6); c.lineTo(-10, -36);
+    c.stroke();
+    c.strokeStyle = '#FF5C8F';
+    c.lineWidth = 5.5;
+    for (const s of [-1, 1]) {
+      ell(c, s * 9, 18, 9, 11, s * 0.3);
+      c.stroke();
+    }
+    c.fillStyle = '#fff';
+    ell(c, 0, 4, 2.6);
+    c.fill();
+    c.restore();
+  },
+  atelier(c) {
+    // A dress being painted
+    c.save();
+    c.translate(-8, -4);
+    c.scale(0.86, 0.86);
+    c.fillStyle = '#FFFFFF';
+    c.beginPath();
+    c.moveTo(-11, -8);
+    c.bezierCurveTo(-18, 12, -36, 26, -37, 42);
+    c.quadraticCurveTo(0, 54, 37, 42);
+    c.bezierCurveTo(36, 26, 18, 12, 11, -8);
+    c.closePath();
+    c.fill();
+    c.save();
+    c.clip();
+    ['#FF7F9F', '#FFB65C', '#FFE066', '#7FE3A0', '#6FC6FF'].forEach((col, i) => {
+      c.fillStyle = col;
+      ell(c, -24 + i * 13, 28 + (i % 2) * 8, 10, 13);
+      c.fill();
+    });
+    c.restore();
+    c.fillStyle = '#FF7DAE';
+    c.beginPath();
+    c.moveTo(-12, -8);
+    c.quadraticCurveTo(-14, -22, -13, -32);
+    c.quadraticCurveTo(-6, -27, 0, -29);
+    c.quadraticCurveTo(6, -27, 13, -32);
+    c.quadraticCurveTo(14, -22, 12, -8);
+    c.closePath();
+    c.fill();
+    c.restore();
+    // Spool of thread and needle
+    c.fillStyle = '#D9A066';
+    rr(c, 22, -38, 22, 6, 3);
+    c.fill();
+    rr(c, 22, -14, 22, 6, 3);
+    c.fill();
+    c.fillStyle = clay(c, 33, -23, 12, '#8C68F2');
+    rr(c, 25, -33, 16, 20, 4);
+    c.fill();
+    c.strokeStyle = '#8C68F2';
+    c.lineWidth = 2;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(33, -10);
+    c.bezierCurveTo(44, 8, 18, 12, 28, 30);
+    c.stroke();
+    c.strokeStyle = '#AEBBD4';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(23, 26);
+    c.lineTo(36, 42);
+    c.stroke();
   },
   balloon(c, t) {
     // Hot-air balloon over a tiny cloud

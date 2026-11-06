@@ -152,6 +152,22 @@ const SFX = {
   },
   flame: () => normalize(noiseBand(0.26, (u) => 1200 - 800 * u, 0.8, (u) => Math.sin(Math.PI * Math.sqrt(u))), 0.26),
   tick: () => normalize(sweep(0.03, () => 1500, expo(6)), 0.3),
+  // Scissors: two tiny blades closing, all treble and no sting
+  snip: () => {
+    const d = new Float32Array(Math.floor(0.09 * SR));
+    mixInto(d, noiseBand(0.03, () => 3400, 2.2, expo(5)), 1);
+    mixInto(d, noiseBand(0.022, () => 2300, 2.6, expo(5)), 0.8, 0.038);
+    return normalize(d, 0.4);
+  },
+  // A clown's squeezy nose
+  honk: () => normalize(sweep(0.22, (u) => 300 + 90 * Math.sin(u * 9), (u) => Math.sin(Math.PI * Math.min(1, u * 1.1)) ** 0.5, 0.6), 0.6),
+  // Long enough to loop quietly for the dryer, shower and blender
+  hiss: () => normalize(noiseBand(1.2, () => 1500, 0.8, () => 1), 0.5),
+  rumble: () => {
+    const d = noiseBand(1.2, () => 320, 0.9, () => 1);
+    mixInto(d, sweep(1.2, () => 110, () => 1, 0.5), 0.35);
+    return normalize(d, 0.55);
+  },
   // Voices: tiny wordless creature chirps. Round sines, never harsh.
   coo: () => normalize(sweep(0.28, (u) => 620 + 180 * Math.sin(Math.PI * u * 0.9), (u) => Math.sin(Math.PI * u) ** 0.8, 0.12), 0.7),
   chirp: () => normalize(sweep(0.12, (u) => 760 + 420 * u, (u) => Math.sin(Math.PI * u), 0.08), 0.65),
@@ -407,6 +423,130 @@ class Audio {
   /** Wordless creature voice. pitch 1 = default; each friend has its own. */
   voice(type, pitch = 1, vol = 0.62) {
     this.sfx(type, { rate: pitch * (0.97 + Math.random() * 0.06), vol, wet: 0.35, gap: 60 });
+  }
+
+  /**
+   * A live singing voice: two oscillators through three vowel filters, changed
+   * every frame while a finger stretches a mouth. Returns null until sound is
+   * unlocked. Kept dark and round, so that no pitch can ever turn shrill.
+   */
+  singer({ wave = 'sawtooth', vib = 22, vibRate = 5.4, trem = 0 } = {}) {
+    if (!this.running) return null;
+    const ctx = this.ctx, t0 = ctx.currentTime;
+    const a = ctx.createOscillator(), b = ctx.createOscillator();
+    a.type = wave;
+    b.type = 'triangle';
+    b.detune.value = 6;
+    const lfo = ctx.createOscillator(), lfoAmt = ctx.createGain();
+    lfo.frequency.value = vibRate || 0.01;
+    lfoAmt.gain.value = vib;
+    lfo.connect(lfoAmt);
+    lfoAmt.connect(a.detune);
+    lfoAmt.connect(b.detune);
+
+    const src = ctx.createGain();
+    a.connect(src);
+    const bg = ctx.createGain();
+    bg.gain.value = 0.6;
+    b.connect(bg);
+    bg.connect(src);
+    const out = ctx.createGain();
+    out.gain.value = 0;
+
+    const forms = [[800, 7, 1], [1200, 9, 0.5], [2600, 11, 0.16]].map(([f, q, g]) => {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f;
+      bp.Q.value = q;
+      const gn = ctx.createGain();
+      gn.gain.value = g * 2.6;
+      src.connect(bp);
+      bp.connect(gn);
+      gn.connect(out);
+      return bp;
+    });
+    // The chest of the voice: without it the vowels sound thin and whistly
+    const body = ctx.createBiquadFilter();
+    body.type = 'lowpass';
+    body.frequency.value = 700;
+    const bodyG = ctx.createGain();
+    bodyG.gain.value = 0.32;
+    src.connect(body);
+    body.connect(bodyG);
+    bodyG.connect(out);
+
+    let last = out, tremOsc = null;
+    if (trem) {
+      // Ring-modulated, for the robot
+      const ring = ctx.createGain();
+      ring.gain.value = 1.1;
+      tremOsc = ctx.createOscillator();
+      tremOsc.frequency.value = trem;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.7;
+      tremOsc.connect(depth);
+      depth.connect(ring.gain);
+      out.connect(ring);
+      last = ring;
+      tremOsc.start(t0);
+    }
+    last.connect(this.dry);
+    const send = ctx.createGain();
+    send.gain.value = 0.42;
+    last.connect(send);
+    send.connect(this.rev);
+
+    a.start(t0);
+    b.start(t0);
+    lfo.start(t0);
+    let closed = false;
+    return {
+      /** f in Hz, amp 0..1, F = [f1, f2, f3], glide = seconds to slide there */
+      set(f, amp, F, glide = 0.05) {
+        if (closed) return;
+        const n = ctx.currentTime;
+        a.frequency.setTargetAtTime(f, n, glide);
+        b.frequency.setTargetAtTime(f, n, glide);
+        out.gain.setTargetAtTime(amp * 0.42, n, 0.035);
+        if (F) forms.forEach((bp, i) => bp.frequency.setTargetAtTime(Math.min(F[i], 7000), n, 0.07));
+      },
+      close() {
+        if (closed) return;
+        closed = true;
+        const n = ctx.currentTime;
+        out.gain.setTargetAtTime(0, n, 0.04);
+        const end = n + 0.3;
+        [a, b, lfo].forEach((o) => { try { o.stop(end); } catch (e) {} });
+        if (tremOsc) { try { tremOsc.stop(end); } catch (e) {} }
+        a.onended = () => { try { last.disconnect(); send.disconnect(); out.disconnect(); } catch (e) {} };
+      }
+    };
+  }
+
+  /** A quiet endless sound (dryer, shower, blender). Returns {set(vol), stop()}. */
+  loop(name, vol = 0.3, rate = 1) {
+    if (!this.running || !this.buffers.get(name)) return null;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.buffers.get(name);
+    src.loop = true;
+    src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    g.gain.setTargetAtTime(vol, ctx.currentTime, 0.05);
+    src.connect(g);
+    g.connect(this.dry);
+    src.start();
+    let done = false;
+    return {
+      set: (v) => { if (!done) g.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
+      stop: () => {
+        if (done) return;
+        done = true;
+        g.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+        try { src.stop(ctx.currentTime + 0.3); } catch (e) {}
+      }
+    };
   }
 
   /** How loud the music sits; 0 fades it out. */

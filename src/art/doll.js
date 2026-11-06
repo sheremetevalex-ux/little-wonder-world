@@ -1429,6 +1429,29 @@ export function drawDoll(c, d, o = {}) {
   c.restore();
 }
 
+/** Just the head and face, no hair, for the salon. Same doll space as drawDoll. */
+export function drawDollHead(c, d, o = {}) {
+  const skin = SKINS[d.skin] || SKINS[1];
+  c.save();
+  c.fillStyle = hgrad(c, -18, 18, dark(skin, 0.14), skin);
+  rr(c, -10, -52, 20, 18, 7);
+  c.fill();
+  for (const k of [-1, 1]) {
+    c.fillStyle = clay(c, k * 57, -78, 10, skin);
+    ell(c, k * 57, -78, 9, 11);
+    c.fill();
+  }
+  c.fillStyle = clay(c, 0, -92, 58, skin, 54);
+  c.beginPath();
+  c.moveTo(-58, -92);
+  c.bezierCurveTo(-58, -150, 58, -150, 58, -92);
+  c.bezierCurveTo(58, -54, 30, -42, 0, -42);
+  c.bezierCurveTo(-30, -42, -58, -54, -58, -92);
+  c.fill();
+  drawFace(c, d, o);
+  c.restore();
+}
+
 export function drawHairTile(c, key, col, skin) {
   c.save();
   c.scale(0.33, 0.33);
@@ -1446,4 +1469,489 @@ export function drawHairTile(c, key, col, skin) {
   if (h.top) h.top(c, col, 0);
   h.front(c, col, 0);
   c.restore();
+}
+
+// ---- MORE TO WEAR ------------------------------------------------------------------
+function braidDown(c, col, x0, s, n = 7, swing = 1) {
+  for (let i = 0; i < n; i++) {
+    const y = -74 + i * 20, x = x0 + Math.sin(i * 0.9) * 3 + s * i * 0.7 * swing, r = 15 - i * 1.1;
+    c.fillStyle = clay(c, x, y, r, col === 'rainbow' ? RAINBOW[i % 6] : baseCol(col));
+    ell(c, x, y, r, r * 0.84, (i % 2 ? 0.35 : -0.35));
+    c.fill();
+  }
+}
+Object.assign(HAIR, {
+  afro: {
+    back(c, col) {
+      const k = baseCol(col);
+      for (let i = 0; i < 22; i++) {
+        const a = (i / 22) * TAU, r = 80 + (i % 3) * 5;
+        c.fillStyle = col === 'rainbow' ? clay(c, 0, 0, 30, RAINBOW[i % 6]) : clay(c, Math.cos(a) * r, -102 + Math.sin(a) * r, 26, k);
+        ell(c, Math.cos(a) * r, -102 + Math.sin(a) * r, 25);
+        c.fill();
+      }
+      c.fillStyle = col === 'rainbow' ? RAINBOW[4] : k;
+      ell(c, 0, -102, 84);
+      c.fill();
+    },
+    front(c, col) {
+      const k = baseCol(col);
+      [[-44, -130, 17], [-20, -140, 18], [8, -142, 18], [34, -134, 17], [52, -116, 13], [-56, -112, 13]].forEach(([x, y, r], i) => {
+        c.fillStyle = col === 'rainbow' ? clay(c, x, y, r, RAINBOW[i % 6]) : clay(c, x, y, r, k);
+        ell(c, x, y, r);
+        c.fill();
+      });
+    }
+  },
+  mohawk: {
+    back(c, col) {
+      c.fillStyle = hairFill(c, -150, -60, col);
+      ell(c, 0, -94, 60, 58);
+      c.fill();
+    },
+    top(c, col, s) {
+      for (let i = 0; i < 7; i++) {
+        const a = -2.5 + i * 0.32, x = Math.cos(a) * 60, y = -94 + Math.sin(a) * 60;
+        c.save();
+        c.translate(x, y);
+        c.rotate(a + Math.PI / 2 + s * 0.02);
+        c.fillStyle = col === 'rainbow' ? RAINBOW[i % 6] : hairFill(c, -40, 10, col);
+        c.beginPath();
+        c.moveTo(-13, 6);
+        c.quadraticCurveTo(-5, -32, 0, -42 + (i % 2) * 8);
+        c.quadraticCurveTo(5, -32, 13, 6);
+        c.closePath();
+        c.fill();
+        c.restore();
+      }
+    },
+    front: (c, col) => {
+      c.fillStyle = hairFill(c, -152, -110, col);
+      c.beginPath();
+      c.moveTo(-48, -120);
+      c.bezierCurveTo(-38, -158, 38, -158, 48, -120);
+      c.quadraticCurveTo(0, -136, -48, -120);
+      c.fill();
+    }
+  },
+  twin: {
+    back(c, col, s) {
+      c.fillStyle = hairFill(c, -150, -40, col);
+      ell(c, 0, -94, 63, 62);
+      c.fill();
+      for (const k of [-1, 1]) braidDown(c, col, k * 62, s * k, 8);
+    },
+    top(c, col, s) {
+      for (const k of [-1, 1]) {
+        c.fillStyle = P.sky;
+        ell(c, k * 62 + s * k * 5, 66, 7);
+        c.fill();
+      }
+    },
+    front: (c, col) => bangs(c, col, 'mid')
+  },
+  pixie: {
+    back(c, col) {
+      c.fillStyle = hairFill(c, -150, -60, col);
+      ell(c, 0, -98, 66, 62);
+      c.fill();
+    },
+    front(c, col) {
+      c.fillStyle = hairFill(c, -158, -90, col);
+      c.beginPath();
+      c.moveTo(-62, -84);
+      c.bezierCurveTo(-74, -172, 74, -172, 62, -84);
+      c.lineTo(50, -106);
+      c.lineTo(38, -96);
+      c.lineTo(26, -116);
+      c.lineTo(8, -106);
+      c.lineTo(-10, -122);
+      c.lineTo(-28, -108);
+      c.lineTo(-42, -114);
+      c.lineTo(-50, -98);
+      c.closePath();
+      c.fill();
+      shine(c, -16, -138, 30, col);
+    }
+  },
+  sidebun: {
+    back(c, col) {
+      c.fillStyle = hairFill(c, -150, -40, col);
+      ell(c, 0, -94, 63, 62);
+      c.fill();
+    },
+    top(c, col, s) {
+      c.fillStyle = clay(c, 62, -142, 33, baseCol(col));
+      ell(c, 62, -142 + s, 32);
+      c.fill();
+      gloss(c, 52, -154, 11, 6, 0.6);
+      c.fillStyle = P.rose;
+      rr(c, 34, -128, 16, 9, 4);
+      c.fill();
+    },
+    front: (c, col) => bangs(c, col, 'side')
+  },
+  longcurl: {
+    back(c, col, s) {
+      c.fillStyle = hairFill(c, -150, 60, col);
+      ell(c, 0, -94, 66, 64);
+      c.fill();
+      for (const k of [-1, 1]) {
+        for (let j = 0; j < 3; j++) {
+          for (let i = 0; i < 8; i++) {
+            const y = -80 + i * 20 + j * 6, x = k * (48 + j * 13) + Math.sin(i * 1.7 + j) * 7 + s * i * 0.6, r = 14 - i * 0.5;
+            c.fillStyle = col === 'rainbow' ? clay(c, x, y, r, RAINBOW[(i + j) % 6]) : clay(c, x, y, r, baseCol(col));
+            ell(c, x, y, r);
+            c.fill();
+          }
+        }
+      }
+    },
+    front: (c, col) => bangs(c, col, 'mid')
+  }
+});
+
+Object.assign(DRESS, {
+  hero: {
+    colors: ['#E8476F', '#5698FF', '#8C68F2', '#3FD0C9', '#FFB02E'], draw(c, col, s) {
+      c.fillStyle = cloth(c, -30, 30, col);
+      for (const k of [-1, 1]) {
+        rr(c, k > 0 ? 2 : -30, 4, 28, 92, 12);
+        c.fill();
+      }
+      bell(c, dark(col, 0.12), 38, 34, s, 0);
+      bodice(c, col, { belt: P.sun });
+      softStar(c, 0, -20, 15);
+      c.fillStyle = P.butter;
+      c.fill();
+      softStar(c, 0, -20, 8);
+      c.fillStyle = col;
+      c.fill();
+    }
+  },
+  astro: {
+    colors: ['#F2F5FF', '#FFC4DC', '#BFE9FF', '#FFE9A8'], draw(c, col, s) {
+      c.fillStyle = cloth(c, -34, 34, col);
+      for (const k of [-1, 1]) {
+        rr(c, k > 0 ? 1 : -33, 2, 32, 90, 14);
+        c.fill();
+        c.fillStyle = P.coral;
+        rr(c, k > 0 ? 1 : -33, 66, 32, 8, 4);
+        c.fill();
+        c.fillStyle = cloth(c, -34, 34, col);
+      }
+      c.fillStyle = cloth(c, -34, 34, col);
+      rr(c, -32, -42, 64, 58, 18);
+      c.fill();
+      c.fillStyle = '#5B6B9A';
+      rr(c, -18, -30, 36, 26, 6);
+      c.fill();
+      c.fillStyle = '#7FE3A0';
+      ell(c, -8, -22, 4);
+      c.fill();
+      c.fillStyle = P.rose;
+      ell(c, 7, -22, 4);
+      c.fill();
+      c.fillStyle = P.sun;
+      rr(c, -12, -13, 24, 5, 2.5);
+      c.fill();
+      c.fillStyle = P.coral;
+      rr(c, -33, 6, 66, 8, 4);
+      c.fill();
+    }
+  },
+  beesuit: {
+    colors: ['#FFD24D', '#FF9FC3', '#7FE3C8'], draw(c, col, s) {
+      c.fillStyle = cloth(c, -44, 44, col);
+      ell(c, s * 3, 22, 46, 54);
+      c.fill();
+      c.save();
+      c.clip();
+      c.fillStyle = '#4B3260';
+      for (const y of [-14, 12, 38, 62]) {
+        c.fillRect(-60, y, 120, 12);
+      }
+      c.restore();
+      c.fillStyle = 'rgba(210,240,255,.85)';
+      for (const k of [-1, 1]) {
+        ell(c, k * 44, -8, 24, 15, k * -0.4);
+        c.fill();
+      }
+      puff(c, col);
+    }
+  },
+  raincoat: {
+    colors: ['#FFD24D', '#FF7DAE', '#6FC6FF', '#7FE3A0'], draw(c, col, s) {
+      bell(c, col, 46, 76, s * 0.6, 0, 26, -38);
+      c.fillStyle = light(col, 0.3);
+      rr(c, -3, -36, 6, 112, 3);
+      c.fill();
+      c.fillStyle = '#fff';
+      for (let i = 0; i < 4; i++) {
+        ell(c, 0, -22 + i * 26, 4.5);
+        c.fill();
+      }
+      c.fillStyle = dark(col, 0.1);
+      for (const k of [-1, 1]) {
+        rr(c, k * 24 - 11, 28, 22, 18, 5);
+        c.fill();
+      }
+      c.fillStyle = light(col, 0.15);
+      ell(c, 0, -40, 28, 10);
+      c.fill();
+    }
+  },
+  denim: {
+    colors: ['#FF8FC4', '#FFD45C', '#FFFFFF', '#7FE3C8', '#B48BFF'], draw(c, col, s) {
+      bell(c, '#6FA8E8', 46, 52, s * 0.7, 0);
+      c.strokeStyle = 'rgba(255,255,255,.55)';
+      c.lineWidth = 2;
+      c.setLineDash([5, 4]);
+      c.beginPath();
+      c.moveTo(0, 8);
+      c.lineTo(s, 56);
+      c.stroke();
+      c.setLineDash([]);
+      bodice(c, col, { belt: '#5B86C8' });
+      heart(c, 0, -18, 10);
+      c.fillStyle = P.rose;
+      c.fill();
+    }
+  },
+  sequin: {
+    colors: ['#FFC233', '#D7DEEA', '#FF7DAE', '#8C68F2', '#3FD0C9'], draw(c, col, s, t = 0) {
+      bell(c, col, 56, 74, s);
+      c.save();
+      c.clip();
+      for (let y = 0; y < 9; y++) {
+        for (let x = -7; x <= 7; x++) {
+          const k = 0.5 + 0.5 * Math.sin(t * 3 + x * 1.3 + y * 2.1);
+          c.fillStyle = `rgba(255,255,255,${0.15 + k * 0.6})`;
+          ell(c, x * 10 + (y % 2) * 5, 10 + y * 10, 3.2);
+          c.fill();
+        }
+      }
+      c.restore();
+      bodice(c, col, { belt: '#fff' });
+      for (let i = 0; i < 4; i++) {
+        sparkleShape(c, -14 + i * 9, -28 + (i % 2) * 14, 4);
+        c.fillStyle = '#fff';
+        c.fill();
+      }
+    }
+  },
+  ladybird: {
+    colors: ['#FF5C5C', '#FF8FC4', '#FFB02E'], draw(c, col, s) {
+      bell(c, col, 58, 62, s, 7);
+      c.save();
+      c.clip();
+      c.fillStyle = '#3A2A57';
+      for (const [x, y, r] of [[-30, 26, 9], [28, 22, 8], [-12, 48, 9], [20, 52, 9], [-44, 54, 7], [46, 50, 7], [2, 22, 6]]) {
+        ell(c, x, y, r);
+        c.fill();
+      }
+      c.restore();
+      bodice(c, '#3A2A57');
+      for (const k of [-1, 1]) {
+        ell(c, k * 10, -18, 5);
+        c.fillStyle = col;
+        c.fill();
+      }
+    }
+  }
+});
+
+Object.assign(HEADWEAR, {
+  cap: {
+    colors: ['#FF7DAE', '#5698FF', '#FFC233', '#7FE3A0'], draw(c, col) {
+      c.fillStyle = clay(c, 0, -142, 62, col);
+      c.beginPath();
+      c.moveTo(-60, -118);
+      c.bezierCurveTo(-60, -176, 60, -176, 60, -118);
+      c.quadraticCurveTo(0, -134, -60, -118);
+      c.fill();
+      c.fillStyle = dark(col, 0.14);
+      c.beginPath();
+      c.moveTo(-58, -120);
+      c.quadraticCurveTo(-100, -112, -92, -102);
+      c.quadraticCurveTo(-60, -112, -30, -122);
+      c.closePath();
+      c.fill();
+      softStar(c, 4, -146, 11);
+      c.fillStyle = '#fff';
+      c.fill();
+    }
+  },
+  beanie: {
+    colors: ['#FF8A7A', '#B48BFF', '#6FC6FF', '#FFD45C', '#FFFFFF'], draw(c, col) {
+      c.fillStyle = clay(c, 0, -142, 64, col);
+      c.beginPath();
+      c.moveTo(-62, -116);
+      c.bezierCurveTo(-62, -184, 62, -184, 62, -116);
+      c.closePath();
+      c.fill();
+      c.fillStyle = light(col, 0.4);
+      rr(c, -66, -128, 132, 22, 11);
+      c.fill();
+      c.strokeStyle = alpha(dark(col, 0.4), 0.3);
+      c.lineWidth = 2;
+      for (let i = -5; i <= 5; i++) {
+        c.beginPath();
+        c.moveTo(i * 12, -127);
+        c.lineTo(i * 12, -108);
+        c.stroke();
+      }
+      c.fillStyle = clay(c, 0, -176, 18, '#fff');
+      ell(c, 0, -176, 17);
+      c.fill();
+    }
+  },
+  chef: {
+    colors: ['#FFFFFF', '#FFE9F0', '#FFF3C4'], draw(c, col) {
+      c.fillStyle = clay(c, 0, -170, 50, col);
+      for (const [x, y, r] of [[-30, -166, 26], [0, -180, 30], [30, -166, 26]]) {
+        ell(c, x, y, r);
+        c.fill();
+      }
+      c.fillStyle = hgrad(c, -46, 46, dark(col, 0.08), col, dark(col, 0.1));
+      rr(c, -44, -162, 88, 38, 6);
+      c.fill();
+    }
+  },
+  pirate: {
+    colors: ['#E8476F', '#3A2A57', '#5698FF'], draw(c, col) {
+      c.fillStyle = clay(c, 0, -138, 60, col);
+      c.beginPath();
+      c.moveTo(-60, -112);
+      c.bezierCurveTo(-60, -172, 60, -172, 60, -112);
+      c.quadraticCurveTo(0, -130, -60, -112);
+      c.fill();
+      c.fillStyle = '#fff';
+      for (const [x, y] of [[-34, -132], [-8, -148], [22, -140], [40, -124], [-48, -118]]) {
+        ell(c, x, y, 4.5);
+        c.fill();
+      }
+      c.fillStyle = dark(col, 0.14);
+      for (const a of [0.5, 1.1]) {
+        c.save();
+        c.translate(60, -116);
+        c.rotate(a);
+        rr(c, -7, 0, 14, 32, 6);
+        c.fill();
+        c.restore();
+      }
+    }
+  },
+  astro: {
+    colors: ['#BFE9FF', '#FFC4DC', '#D9C7FF'], draw(c, col) {
+      c.fillStyle = alpha(col, 0.2);
+      ell(c, 0, -94, 86);
+      c.fill();
+      c.lineWidth = 7;
+      c.strokeStyle = 'rgba(255,255,255,.9)';
+      ell(c, 0, -94, 86);
+      c.stroke();
+      c.fillStyle = hgrad(c, -60, 60, '#D7DEEA', '#FFF', '#C5CFE2');
+      rr(c, -56, -22, 112, 16, 8);
+      c.fill();
+      gloss(c, -38, -136, 22, 12, 0.85);
+      c.fillStyle = P.coral;
+      ell(c, 72, -152, 7);
+      c.fill();
+    }
+  }
+});
+
+Object.assign(SHOES, {
+  rain: {
+    colors: ['#FFD24D', '#FF5C8F', '#5698FF', '#7FE3A0'], draw(c, col) {
+      shoePair(c, () => {
+        c.fillStyle = cloth(c, -12, 18, col);
+        c.beginPath();
+        c.moveTo(-12, 112);
+        c.lineTo(-13, 66);
+        c.lineTo(13, 66);
+        c.lineTo(12, 94);
+        c.quadraticCurveTo(22, 100, 21, 112);
+        c.closePath();
+        c.fill();
+        c.fillStyle = '#fff';
+        for (const [x, y] of [[-5, 76], [5, 86], [-4, 98], [10, 104]]) {
+          ell(c, x, y, 2.6);
+          c.fill();
+        }
+      });
+    }
+  },
+  skates: {
+    colors: ['#FFFFFF', '#FFC4DC', '#BFE9FF'], draw(c, col) {
+      shoePair(c, () => {
+        c.fillStyle = cloth(c, -10, 16, col);
+        c.beginPath();
+        c.moveTo(-10, 106);
+        c.lineTo(-10, 78);
+        c.lineTo(10, 78);
+        c.lineTo(10, 94);
+        c.quadraticCurveTo(19, 98, 18, 106);
+        c.closePath();
+        c.fill();
+        c.fillStyle = '#AEBBD4';
+        rr(c, -12, 110, 32, 4, 2);
+        c.fill();
+        rr(c, -6, 105, 4, 7, 1);
+        c.fill();
+        rr(c, 9, 105, 4, 7, 1);
+        c.fill();
+      });
+    }
+  }
+});
+
+Object.assign(HAND, {
+  mic: {
+    colors: ['#FF5C8F', '#FFC233', '#6FC6FF', '#B48BFF'], draw(c, col) {
+      c.save();
+      c.rotate(-0.25);
+      c.fillStyle = hgrad(c, -5, 5, '#5B4A7C', '#3F3459');
+      rr(c, -5, -18, 10, 34, 4);
+      c.fill();
+      c.fillStyle = clay(c, 0, -28, 14, col);
+      ell(c, 0, -28, 13);
+      c.fill();
+      gloss(c, -4, -33, 5, 3, 0.8);
+      c.restore();
+    }
+  },
+  umbrella: {
+    colors: ['#FF7DAE', '#6FC6FF', '#FFC233', '#7FE3A0'], draw(c, col) {
+      c.strokeStyle = '#9E6B42';
+      c.lineWidth = 4;
+      c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(0, 16); c.lineTo(0, -70);
+      c.stroke();
+      c.fillStyle = cloth(c, -48, 48, col);
+      c.beginPath();
+      c.moveTo(-48, -66);
+      c.bezierCurveTo(-44, -112, 44, -112, 48, -66);
+      for (let i = 0; i < 4; i++) c.quadraticCurveTo(48 - (i + 0.5) * 24, -78, 48 - (i + 1) * 24, -66);
+      c.closePath();
+      c.fill();
+    }
+  }
+});
+
+/** A dress she made herself in the atelier, stored as a picture. */
+export function registerCustomDress(id, url) {
+  const img = new Image();
+  img.src = url;
+  DRESS[id] = {
+    colors: null, custom: true, draw(c, col, s) {
+      if (!img.complete || !img.naturalWidth) return;
+      c.save();
+      c.transform(1, 0, (s || 0) * 0.012, 1, 0, 0);
+      c.drawImage(img, -120, -60, 240, 200);
+      c.restore();
+    }
+  };
 }

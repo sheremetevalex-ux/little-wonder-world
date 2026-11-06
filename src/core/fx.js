@@ -60,6 +60,20 @@ const makers = {
     c.arc(r, r, r, 0, TAU);
     c.fill();
   },
+  note: (color) => (c, w) => {
+    const k = w / 40;
+    c.fillStyle = color;
+    c.strokeStyle = color;
+    c.lineWidth = 3.6 * k;
+    c.lineCap = 'round';
+    ell(c, 15 * k, 31 * k, 7.5 * k, 5.6 * k, -0.3);
+    c.fill();
+    c.beginPath();
+    c.moveTo(21.5 * k, 30 * k);
+    c.lineTo(21.5 * k, 8 * k);
+    c.quadraticCurveTo(29 * k, 11 * k, 32 * k, 19 * k);
+    c.stroke();
+  },
   confetti: (color) => (c, w) => {
     rr(c, 0, w * 0.22, w, w * 0.56, 2);
     c.fillStyle = color;

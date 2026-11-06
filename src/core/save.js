@@ -15,7 +15,10 @@ const DEFAULT = {
   pet: 'moko',
   paint: null,              // autosaved drawing
   garden: null,             // music garden pattern
-  seen: {}                  // which games have shown their first hand hint
+  seen: {},                 // which games have shown their first hand hint
+  myDresses: [],            // dresses from the atelier: {id, url, cut}
+  shiny: [],                // friends who hatched a second time and wear a golden crown
+  meadow: null              // who she invited to the meadow; null means "the newest ones"
 };
 
 let data;
@@ -36,7 +39,10 @@ function flush() {
     if (data.photos.length > 4) {
       data.photos = data.photos.slice(0, 4);
       data.paint = null;
-      try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e2) {}
+      try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e2) {
+        data.myDresses = (data.myDresses || []).slice(-3);
+        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e3) {}
+      }
     }
   }
 }

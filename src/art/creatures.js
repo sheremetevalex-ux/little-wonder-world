@@ -579,6 +579,35 @@ export function drawCreature(c, id, o = {}) {
     c.restore();
   }
 
+  // Hatched twice: she has earned a golden crown and a little sparkle
+  if (o.shiny) {
+    c.save();
+    c.translate(0, -R * 1.02);
+    const w = R * 0.42, h = R * 0.36;
+    c.fillStyle = clay(c, 0, -h * 0.4, w, '#FFC233');
+    c.beginPath();
+    c.moveTo(-w, 0);
+    c.lineTo(-w * 1.08, -h);
+    c.lineTo(-w * 0.45, -h * 0.5);
+    c.lineTo(0, -h * 1.2);
+    c.lineTo(w * 0.45, -h * 0.5);
+    c.lineTo(w * 1.08, -h);
+    c.lineTo(w, 0);
+    c.quadraticCurveTo(0, h * 0.25, -w, 0);
+    c.closePath();
+    c.fill();
+    c.fillStyle = P.rose;
+    ell(c, 0, -h * 0.22, R * 0.06);
+    c.fill();
+    c.restore();
+    for (let i = 0; i < 3; i++) {
+      const a = t * 0.7 + i * 2.09, k = 0.5 + 0.5 * Math.sin(t * 4 + i * 2);
+      sparkleShape(c, Math.cos(a) * R * 1.2, Math.sin(a) * R * 1.05, R * 0.14 * k);
+      c.fillStyle = '#FFE680';
+      c.fill();
+    }
+  }
+
   if (o.sparkly) {
     for (let i = 0; i < 4; i++) {
       const a = t * 0.8 + i * 1.57, k = 0.5 + 0.5 * Math.sin(t * 5 + i * 2);

@@ -901,10 +901,10 @@ export const cake = {
       const on = this.tool === t;
       c.save();
       c.translate(x, y);
+      c.fillStyle = on ? '#FFE9A8' : '#FFE9D9';
+      ell(c, 0, 0, 26);
+      c.fill();
       if (on) {
-        c.fillStyle = '#FFE9A8';
-        ell(c, 0, 0, 26);
-        c.fill();
         c.lineWidth = 3;
         c.strokeStyle = P.sun;
         c.stroke();

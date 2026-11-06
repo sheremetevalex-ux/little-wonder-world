@@ -1,4 +1,4 @@
-// The living meadow: eight glossy worlds float in the sky above a meadow where
+// The living meadow: twelve glossy worlds float in the sky above a meadow where
 // every friend hatched so far is at home. Everything responds to a touch.
 import { app, go, hint, wait, tween, Btn, Spring, candy, haptic } from '../core/engine.js';
 import { audio, penta } from '../core/audio.js';
@@ -19,7 +19,11 @@ const WORLDS = [
   { id: 'slime', icon: 'slime', color: '#C2F5D2', note: 4 },
   { id: 'paint', icon: 'paint', color: '#FFD0DC', note: 5 },
   { id: 'garden', icon: 'garden', color: '#D7F5FF', note: 6 },
-  { id: 'quest', icon: 'balloon', color: '#FFF0A8', note: 7 }
+  { id: 'quest', icon: 'balloon', color: '#FFF0A8', note: 7 },
+  { id: 'sing', icon: 'sing', color: '#FFD0E4', note: 8 },
+  { id: 'cafe', icon: 'cafe', color: '#FFE9C4', note: 9 },
+  { id: 'salon', icon: 'salon', color: '#E7D6FF', note: 10 },
+  { id: 'atelier', icon: 'atelier', color: '#C9F3EC', note: 11 }
 ];
 
 function bubbleSprite(w, r) {
@@ -252,20 +256,18 @@ export const hub = {
   layout() {
     const W = this.W = app.W, H = this.H = app.H;
     const wide = W > 640;
-    this.horizon = wide ? H * 0.68 : H * 0.655;
-    const rows = wide ? [4, 4] : [3, 2, 3];
-    const topY = Math.max(app.safeTop, 8) + 58;
+    this.horizon = wide ? H * 0.7 : H * 0.655;
+    // Four to a row whenever there is room for them; three on a narrow phone
+    const rows = W >= 440 ? [4, 4, 4] : [3, 3, 3, 3];
+    const topY = Math.max(app.safeTop, 8) + (wide ? 16 : 58);
     const areaH = this.horizon - topY - 6;
-    const maxRow = Math.max(...rows);
-    let r = Math.min((W - 22) / (maxRow * 2.22), wide ? 74 : 84);
-    const stepY0 = r * 1.86;
-    if (rows.length * r * 2 > areaH + r * 0.4) r = (areaH + r * 0.4) / (rows.length * 2);
-    this.r = r;
-    const stepY = Math.min(areaH > 0 ? (areaH - r * 2) / Math.max(1, rows.length - 1) : stepY0, wide ? r * 2.5 : r * 2.14);
+    const maxRow = rows[0];
+    const r = this.r = Math.min((W - 22) / (maxRow * 2.16), areaH / (rows.length * 2.14), 84);
+    const stepY = Math.min((areaH - r * 2) / (rows.length - 1), r * 2.3);
     const totalH = stepY * (rows.length - 1);
     const y0 = topY + r + Math.max(0, (areaH - r * 2 - totalH) * 0.42);
     let idx = 0;
-    const spanX = wide ? r * 2.7 : Math.min(r * 2.36, (W - 2 * r - 14) / (maxRow - 1));
+    const spanX = Math.min(wide ? r * 2.7 : r * 2.36, (W - 2 * r - 14) / (maxRow - 1));
     rows.forEach((count, ri) => {
       const rowW = (count - 1) * spanX;
       for (let i = 0; i < count; i++) {
@@ -275,10 +277,8 @@ export const hub = {
       }
     });
     this.nest = { x: W - Math.min(82, W * 0.21), y: Math.min(H - 100, this.horizon + (H - this.horizon) * 0.54) };
-    this.sun = { x: W - (wide ? 110 : 54), y: y0 - r * 0.3 + (wide ? 0 : stepY), r: wide ? 44 : 34 };
-    if (!wide) this.sun = { x: W * 0.5, y: y0 + stepY * 0.5 - r * 1.34 + 6, r: 0 };
-    // On a phone, the bubbles fill the sky, so the sun peeks out on the horizon
-    if (!wide) this.sun = { x: W * 0.5, y: this.horizon - 14, r: 24 };
+    // The bubbles fill the sky, so the sun peeks out on the horizon
+    this.sun = { x: W * 0.5, y: this.horizon + (wide ? -8 : 12), r: wide ? 30 : 24 };
   },
 
   resize() {
@@ -292,14 +292,14 @@ export const hub = {
 
   fillResidents() {
     // Show the newest few, with the mascot always home
-    const all = save.data.friends;
-    const cap = this.W > 640 ? 8 : 5;
-    const chosen = all.length <= cap ? all : ['moko', ...shuffle(all.filter((f) => f !== 'moko')).slice(0, cap - 1)];
+    const chosen = meadowList(this.meadowCap());
     chosen.forEach((id, i) => {
       const x = (this.W - 150) * (0.08 + (i + 0.3) / Math.max(chosen.length, 1) * 0.86);
       this.residents.push(makeResident(id, x, this.meadowY(rand(0.2, 0.75))));
     });
   },
+
+  meadowCap() { return this.W > 900 ? 10 : this.W > 640 ? 8 : 5; },
 
   makeFlowers() {
     const n = Math.max(5, Math.floor(this.W / 74));
@@ -430,7 +430,7 @@ export const hub = {
     drawCreature(c, r.id, {
       R: RR, t: this.t, sx: 2 - sq, sy: sq, seed: r.seed, blink: r.emote ? 0 : blinkAt(this.t, r.seed), lookX, lookY,
       eyes: r.emote || 'open', mouth: r.emote === 'happy' ? 'open' : 'smile', mouthOpen: r.emote === 'happy' ? 0.7 : 0, walk: r.walk,
-      wave: r.wave > 0 ? Math.sin(Math.min(1, r.wave) * Math.PI) : 0, wob: r.sq.v * 0.1
+      wave: r.wave > 0 ? Math.sin(Math.min(1, r.wave) * Math.PI) : 0, wob: r.sq.v * 0.1, shiny: save.data.shiny.includes(r.id)
     });
     c.restore();
   },
@@ -500,7 +500,7 @@ export const hub = {
       c.drawImage(smallBubble().cv, x - s.r, s.y - s.r, s.r * 2, s.r * 2);
     }
 
-    // Eight worlds
+    // All the worlds
     const r = this.r;
     for (const b of this.bubbles) {
       const sp = bubbleSprite(b, r);
@@ -794,9 +794,18 @@ export const hub = {
     save.data.eggs--;
     const owned = new Set(save.data.friends);
     const fresh = FRIEND_IDS.filter((f) => !owned.has(f));
-    const id = fresh.length ? fresh[0 + Math.floor(Math.random() * Math.min(5, fresh.length))] : pick(FRIEND_IDS);
+    // Everyone found? Then eggs bring a friend back wearing a golden crown, for a second
+    // collection as long as the first. Only after that do they repeat.
+    const plain = FRIEND_IDS.filter((f) => !save.data.shiny.includes(f));
+    const id = fresh.length ? fresh[0 + Math.floor(Math.random() * Math.min(5, fresh.length))] : pick(plain.length ? plain : FRIEND_IDS);
     const isNew = !owned.has(id);
-    if (isNew) save.data.friends.push(id);
+    if (isNew) {
+      save.data.friends.push(id);
+      inviteToMeadow(id, this.meadowCap());
+    } else if (!save.data.shiny.includes(id)) {
+      save.data.shiny.push(id);
+      inviteToMeadow(id, this.meadowCap());
+    }
     // Every friend arrives with a gift for the wardrobe
     const item = unlockNextItem();
     save.touch();
@@ -843,9 +852,10 @@ export const hub = {
           R.hopV = -400;
           R.wave = 1;
           this.residents.push(R);
-          if (this.residents.length > (this.W > 640 ? 8 : 5)) {
-            const idx = this.residents.findIndex((r) => r.id !== 'moko' && r.id !== id);
-            this.residents.splice(idx, 1);
+          if (this.residents.length > this.meadowCap()) {
+            const stay = meadowList(this.meadowCap());
+            const idx = this.residents.findIndex((r) => !stay.includes(r.id));
+            if (idx >= 0) this.residents.splice(idx, 1);
           }
         }
         audio.success();
@@ -894,7 +904,7 @@ export const hub = {
     glow(c, cx, cy, size * 2, '#FFF3C0', 0.5);
     c.translate(cx, cy + h.jump);
     c.scale(enter * (2 - h.sq.x), enter * h.sq.x);
-    drawCreature(c, h.id, { R: size, t: this.t, eyes: h.t < 0.8 ? 'wow' : (Math.sin(h.t * 0.8) > 0.3 ? 'happy' : 'open'), mouthOpen: 0.75, wave: 0.8, waveBoth: true, sparkly: true, blink: blinkAt(this.t, 1) });
+    drawCreature(c, h.id, { R: size, t: this.t, eyes: h.t < 0.8 ? 'wow' : (Math.sin(h.t * 0.8) > 0.3 ? 'happy' : 'open'), mouthOpen: 0.75, wave: 0.8, waveBoth: true, sparkly: true, blink: blinkAt(this.t, 1), shiny: save.data.shiny.includes(h.id) });
     c.restore();
     if (h.item) {
       // The present she brought along
@@ -916,7 +926,23 @@ export const hub = {
 };
 
 const i3 = () => Math.floor(rand(0, 5));
-const shuffle = (a) => a.map((v) => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map((v) => v[1]);
+
+/** Who lives on the meadow: her own choice first, then the newest friends. */
+export function meadowList(cap) {
+  const all = save.data.friends;
+  const mine = (save.data.meadow || []).filter((f) => all.includes(f));
+  if (save.data.meadow && mine.length) return mine.slice(0, cap);
+  // Not chosen yet: the mascot, then the newest friends
+  return [...new Set(['moko', ...[...all].reverse()])].filter((f) => all.includes(f)).slice(0, cap);
+}
+
+/** The newest arrival always gets to come out and play. */
+function inviteToMeadow(id, cap) {
+  const m = save.data.meadow;
+  if (!m) return;
+  if (!m.includes(id)) m.unshift(id);
+  if (m.length > cap) m.length = cap;
+}
 
 function smallBubble() {
   return sprite('smallBubble', 40, 40, (c) => {
