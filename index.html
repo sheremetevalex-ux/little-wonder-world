@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Little Wonder World ✨</title>
+  <meta name="description" content="A magical world of dress-up, sensory pop-it & slime, baby pet care, enchanted forest quests, cake baking, and glow art!" />
+
+  <!-- iPhone / iOS Standalone Home Screen PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Wonder World" />
+  <meta name="theme-color" content="#FF6B9D" />
+
+  <!-- App Icons & Manifest -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <!-- Global Particle & Confetti FX Overlay Canvas -->
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- Main Mobile Game App Shell -->
+  <div id="app-shell">
+    <!-- Top Persistent Child-Friendly Navigation HUD -->
+    <header class="top-hud">
+      <button class="hud-btn hud-home-btn hidden" id="hud-home-btn" aria-label="Return to Wonder Island">
+        🏠
+      </button>
+
+      <div class="hud-title-banner" id="hud-title-banner">
+        <span>🌈</span>
+        <span>Wonder World</span>
+        <span>✨</span>
+      </div>
+
+      <div class="hud-right-group">
+        <button class="hud-btn hud-star-pill" id="hud-star-pill" aria-label="Wonder Stars & Surprise Eggs">
+          <span>⭐</span>
+          <span id="hud-star-count">5</span>
+          <span>🥚</span>
+        </button>
+
+        <button class="hud-btn hud-sound-btn" id="hud-sound-btn" aria-label="Toggle Sound">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- Active Screen Stage (Hub or Mini-Game) -->
+    <main id="app-stage"></main>
+
+    <!-- Modal Root for Surprise Egg Hatcher & Sticker Album -->
+    <div id="app-modal-root"></div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
