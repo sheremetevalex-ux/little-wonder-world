@@ -1,0 +1,14 @@
+{
+  "name": "little-wonder-world",
+  "private": true,
+  "type": "module",
+  "description": "Offline-first, wordless game world for small children. No dependencies at runtime.",
+  "scripts": {
+    "start": "python3 -m http.server 5199 --bind 127.0.0.1",
+    "build": "node tools/build.mjs",
+    "test": "node tests/monkey.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.0"
+  }
+}

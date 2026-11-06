@@ -1,70 +1,33 @@
-// ============================================================================
-// Little Wonder World — Offline-First Service Worker (PWA)
-// Pre-caches all game modules, styles, and icons for 100% offline iPhone play
-// ============================================================================
+// Offline cache. tools/build.mjs fills in the version and the file list at deploy
+// time, so every release automatically becomes a clean update on her device.
+const VERSION = '__VERSION__';
+const FILES = ['./', './index.html', './manifest.webmanifest'];
+const CACHE = 'wonder-' + VERSION;
 
-const CACHE_NAME = 'little-wonder-world-v1';
-
-const PRECACHE_ASSETS = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './css/styles.css',
-  './js/main.js',
-  './js/audio.js',
-  './js/state.js',
-  './js/fx.js',
-  './js/avatar.js',
-  './js/hub.js',
-  './js/games/dressup.js',
-  './js/games/sensory.js',
-  './js/games/petspa.js',
-  './js/games/adventure.js',
-  './js/games/bakery.js',
-  './js/games/magicart.js',
-  './icons/apple-touch-icon.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS))
-  );
-  self.skipWaiting();
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      )
-    )
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+// The page asks for the switch at a moment when it can't interrupt play
+self.addEventListener('message', (e) => {
+  if (e.data === 'activate') self.skipWaiting();
+});
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  e.respondWith(
+    caches.match(req, { ignoreSearch: true }).then((hit) => {
+      if (hit) return hit;
+      return fetch(req).catch(() => (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()));
     })
   );
 });

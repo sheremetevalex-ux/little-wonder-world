@@ -1,31 +1,20 @@
 {
-  "name": "Little Wonder World",
+  "name": "Wonder World",
   "short_name": "Wonder World",
-  "description": "Magical Dress-Up, Sensory Pop-It & Slime, Baby Pet Care, Forest Quests, Bakery & Glow Paint!",
-  "start_url": "./index.html",
+  "description": "Волшебный мир игр для маленьких. Без рекламы, покупок и регистрации.",
+  "id": "./",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#4A148C",
-  "theme_color": "#FF6B9D",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#3C2E9E",
+  "theme_color": "#3C2E9E",
+  "lang": "ru",
+  "categories": ["games", "kids", "education"],
   "icons": [
-    {
-      "src": "./icons/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -1,0 +1,24 @@
+import { app, start, go } from './core/engine.js';
+import { splash } from './scenes/splash.js';
+import { hub } from './scenes/hub.js';
+import { dress } from './scenes/dress.js';
+import { pet } from './scenes/pet.js';
+import { cake } from './scenes/cake.js';
+import { popit } from './scenes/popit.js';
+import { slime } from './scenes/slime.js';
+import { paint } from './scenes/paint.js';
+import { garden } from './scenes/garden.js';
+import { quest } from './scenes/quest.js';
+import { album } from './scenes/album.js';
+import { setupPWA } from './pwa.js';
+import { save } from './core/save.js';
+import { audio } from './core/audio.js';
+
+Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album });
+window.__wonder = app;
+window.__go = go;
+window.__save = save;
+window.__audio = audio;
+
+start('splash');
+setupPWA();

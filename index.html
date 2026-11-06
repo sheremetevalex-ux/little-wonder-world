@@ -1,64 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Little Wonder World ✨</title>
-  <meta name="description" content="A magical world of dress-up, sensory pop-it & slime, baby pet care, enchanted forest quests, cake baking, and glow art!" />
-
-  <!-- iPhone / iOS Standalone Home Screen PWA Meta Tags -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Wonder World" />
-  <meta name="theme-color" content="#FF6B9D" />
-
-  <!-- App Icons & Manifest -->
-  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
-  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-
-  <link rel="stylesheet" href="./css/styles.css" />
+<meta charset="utf-8">
+<title>Wonder World</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
+<meta name="description" content="Волшебный мир игр для маленьких: наряды, малыши, торты, слайм, рисование, музыка и приключения. Без рекламы и регистрации.">
+<meta name="theme-color" content="#3C2E9E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wonder World">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!--STARTUP-IMAGES-->
+<style>
+html,body{margin:0;height:100%;background:#3C2E9E;overflow:hidden;position:fixed;inset:0;width:100%;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+body{background:linear-gradient(#3C2E9E,#FF9CC4)}
+canvas{position:absolute;left:0;top:0;display:block;touch-action:none}
+#install{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 18px);transform:translateX(-50%);display:none;
+  font:600 15px/1.2 -apple-system,system-ui,sans-serif;color:#3A2A57;background:rgba(255,255,255,.92);border:0;border-radius:24px;padding:12px 18px;white-space:nowrap;box-shadow:0 6px 20px rgba(40,20,90,.3)}
+#guide{position:fixed;inset:0;background:rgba(40,20,90,.55);display:none;align-items:center;justify-content:center;padding:20px;font:16px/1.4 -apple-system,system-ui,sans-serif;color:#3A2A57;-webkit-user-select:none}
+#guide>div{background:#fff;border-radius:24px;padding:22px;max-width:340px;box-shadow:0 12px 40px rgba(40,20,90,.4)}
+#guide h2{margin:0 0 12px;font-size:19px}#guide ol{margin:0 0 16px;padding-left:22px}#guide li{margin:8px 0}
+#guide button{width:100%;font:600 16px -apple-system,system-ui,sans-serif;color:#fff;background:#8C68F2;border:0;border-radius:16px;padding:12px}
+</style>
 </head>
 <body>
-  <!-- Global Particle & Confetti FX Overlay Canvas -->
-  <canvas id="fx-canvas"></canvas>
-
-  <!-- Main Mobile Game App Shell -->
-  <div id="app-shell">
-    <!-- Top Persistent Child-Friendly Navigation HUD -->
-    <header class="top-hud">
-      <button class="hud-btn hud-home-btn hidden" id="hud-home-btn" aria-label="Return to Wonder Island">
-        🏠
-      </button>
-
-      <div class="hud-title-banner" id="hud-title-banner">
-        <span>🌈</span>
-        <span>Wonder World</span>
-        <span>✨</span>
-      </div>
-
-      <div class="hud-right-group">
-        <button class="hud-btn hud-star-pill" id="hud-star-pill" aria-label="Wonder Stars & Surprise Eggs">
-          <span>⭐</span>
-          <span id="hud-star-count">5</span>
-          <span>🥚</span>
-        </button>
-
-        <button class="hud-btn hud-sound-btn" id="hud-sound-btn" aria-label="Toggle Sound">
-          🔊
-        </button>
-      </div>
-    </header>
-
-    <!-- Active Screen Stage (Hub or Mini-Game) -->
-    <main id="app-stage"></main>
-
-    <!-- Modal Root for Surprise Egg Hatcher & Sticker Album -->
-    <div id="app-modal-root"></div>
-  </div>
-
-  <script type="module" src="./js/main.js"></script>
+<canvas id="game"></canvas>
+<button id="install" type="button"></button>
+<div id="guide" role="dialog"><div><h2 id="gt"></h2><ol id="gl"></ol><button id="gc" type="button">OK</button></div></div>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>
