@@ -1,6 +1,60 @@
 // Everything the game uses from three.js, bundled by tools/vendor.mjs into one
-// minified offline module (src/vendor/three.js). Re-run after a three.js update.
-export * from 'three';
+// minified offline module (src/vendor/three.js). Only what the game names is
+// exported, so the bundle stays small. Re-run after adding a new THREE.* name.
+export {
+  AdditiveBlending,
+  BufferAttribute,
+  BufferGeometry,
+  CanvasTexture,
+  CapsuleGeometry,
+  CatmullRomCurve3,
+  CircleGeometry,
+  Color,
+  ConeGeometry,
+  CylinderGeometry,
+  DirectionalLight,
+  DoubleSide,
+  ExtrudeGeometry,
+  Fog,
+  Group,
+  HemisphereLight,
+  IcosahedronGeometry,
+  InstancedMesh,
+  LatheGeometry,
+  MathUtils,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  NeutralToneMapping,
+  OrthographicCamera,
+  PCFShadowMap,
+  PMREMGenerator,
+  PerspectiveCamera,
+  Plane,
+  PlaneGeometry,
+  PointLight,
+  Points,
+  PointsMaterial,
+  QuadraticBezierCurve3,
+  Quaternion,
+  Raycaster,
+  RepeatWrapping,
+  SRGBColorSpace,
+  Scene,
+  Shape,
+  ShapeGeometry,
+  SphereGeometry,
+  SpotLight,
+  Sprite,
+  SpriteMaterial,
+  TorusGeometry,
+  TubeGeometry,
+  Vector2,
+  Vector3,
+  WebGLRenderTarget,
+  WebGLRenderer
+} from 'three';
 export { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 export { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-export { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
