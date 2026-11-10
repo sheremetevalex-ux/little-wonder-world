@@ -1,221 +1,103 @@
-// Caring for a little friend: a bath with real foam and rinsing, a kitchen where
-// the mouth opens as food approaches, and a cosy bedtime with a lullaby.
-import { app, hint, wait, tween, Btn, Spring, candy, haptic } from '../core/engine.js';
+// Pet house: three cosy 3D rooms side by side, and her friend lives in all of
+// them. In the bathroom, soap makes real foam that sticks to the fur, the shower
+// rinses foam and mud away, and the towel rubs the shine off. In the kitchen, a
+// mouth opens wide when food comes near, bites follow, a lemon makes a funny face
+// and a full belly ends in a burp. In the bedroom, pull up the blanket and turn off
+// the lamp: stars light up the ceiling and a lullaby plays her friend to sleep.
+import { app, go, hint, wait, tween, Btn, Spring, candy, haptic } from '../core/engine.js';
 import { audio, penta } from '../core/audio.js';
 import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
-import { P, E, ell, rr, rand, pick, dist, clamp, lerp, clay, light, dark, gloss, alpha, vgrad, hgrad, glow, TAU, softStar, heart, groundShadow, sparkleShape, spline } from '../core/draw.js';
-import { softBack } from '../art/world.js';
-import { drawCreature, FRIENDS, blinkAt } from '../art/creatures.js';
-
-// ---- Food art -----------------------------------------------------------------------
-const FOODS = {
-  apple(c, r) {
-    c.fillStyle = clay(c, 0, 2, r, '#FF5F68');
-    ell(c, -r * 0.2, 2, r * 0.68, r * 0.84);
-    c.fill();
-    ell(c, r * 0.2, 2, r * 0.68, r * 0.84);
-    c.fill();
-    c.fillStyle = '#7D5230';
-    rr(c, -1.5, -r * 0.96, 3, r * 0.34, 1.5);
-    c.fill();
-    c.fillStyle = '#6FCB66';
-    ell(c, r * 0.28, -r * 0.82, r * 0.28, r * 0.14, -0.4);
-    c.fill();
-    gloss(c, -r * 0.34, -r * 0.3, r * 0.2, r * 0.3, 0.75, 0.2);
-  },
-  berry(c, r) {
-    c.fillStyle = clay(c, 0, 0, r, '#FF4D6A');
-    c.beginPath();
-    c.moveTo(0, r);
-    c.bezierCurveTo(-r * 1.2, r * 0.1, -r * 0.9, -r * 0.8, 0, -r * 0.7);
-    c.bezierCurveTo(r * 0.9, -r * 0.8, r * 1.2, r * 0.1, 0, r);
-    c.fill();
-    c.fillStyle = '#FFE082';
-    for (const [x, y] of [[-0.35, -0.2], [0.25, -0.3], [0, 0.1], [-0.25, 0.4], [0.3, 0.3]]) {
-      ell(c, x * r, y * r, r * 0.05, r * 0.08);
-      c.fill();
-    }
-    c.fillStyle = '#6FCB66';
-    for (let i = 0; i < 5; i++) {
-      ell(c, Math.cos(i * 1.26 + 0.3) * r * 0.26, -r * 0.8 + Math.sin(i * 1.26) * r * 0.1, r * 0.2, r * 0.1, i * 1.26);
-      c.fill();
-    }
-  },
-  carrot(c, r) {
-    c.save();
-    c.rotate(0.5);
-    c.fillStyle = hgrad(c, -r * 0.4, r * 0.4, '#FFB347', '#F5812A');
-    c.beginPath();
-    c.moveTo(-r * 0.42, -r * 0.5);
-    c.quadraticCurveTo(0, -r * 0.8, r * 0.42, -r * 0.5);
-    c.quadraticCurveTo(r * 0.3, r * 0.5, 0, r);
-    c.quadraticCurveTo(-r * 0.3, r * 0.5, -r * 0.42, -r * 0.5);
-    c.fill();
-    c.fillStyle = '#65C95D';
-    for (const a of [-0.5, 0, 0.5]) {
-      ell(c, Math.sin(a) * r * 0.3, -r * 0.8 - Math.cos(a) * r * 0.2, r * 0.13, r * 0.3, a);
-      c.fill();
-    }
-    c.restore();
-  },
-  cupcake(c, r) {
-    c.fillStyle = hgrad(c, -r * 0.6, r * 0.6, '#FFC2DA', '#FF8CB8');
-    c.beginPath();
-    c.moveTo(-r * 0.68, -r * 0.05);
-    c.lineTo(r * 0.68, -r * 0.05);
-    c.lineTo(r * 0.46, r * 0.86);
-    c.lineTo(-r * 0.46, r * 0.86);
-    c.closePath();
-    c.fill();
-    for (const [x, y, s, k] of [[0, -0.2, 0.74, '#FFF3E0'], [0, -0.55, 0.54, '#FFE0F0'], [0, -0.82, 0.3, '#FFF3E0']]) {
-      c.fillStyle = clay(c, x * r, y * r, s * r, k);
-      ell(c, x * r, y * r, s * r, s * r * 0.7);
-      c.fill();
-    }
-    c.fillStyle = P.rose;
-    ell(c, 0, -r * 1.02, r * 0.14);
-    c.fill();
-  },
-  donut(c, r) {
-    c.fillStyle = clay(c, 0, 0, r, '#E8B27C');
-    ell(c, 0, 0, r * 0.95);
-    c.fill();
-    c.fillStyle = clay(c, 0, -2, r, '#FF8FC4');
-    ell(c, 0, -1, r * 0.82);
-    c.fill();
-    const cols = ['#fff', P.butter, P.sky, P.mint];
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * TAU;
-      c.fillStyle = cols[i % 4];
-      ell(c, Math.cos(a) * r * 0.58, Math.sin(a) * r * 0.58 - 1, r * 0.11, r * 0.05, a);
-      c.fill();
-    }
-    c.fillStyle = 'rgba(120,70,40,.7)';
-    ell(c, 0, 0, r * 0.26);
-    c.fill();
-  },
-  melon(c, r) {
-    c.beginPath();
-    c.arc(0, -r * 0.2, r * 1.05, 0, Math.PI);
-    c.closePath();
-    c.fillStyle = '#5BC46E';
-    c.fill();
-    c.beginPath();
-    c.arc(0, -r * 0.2, r * 0.9, 0, Math.PI);
-    c.closePath();
-    c.fillStyle = '#FF6F7F';
-    c.fill();
-    c.fillStyle = '#3A2A57';
-    for (const [x, y] of [[-0.5, 0.05], [-0.15, 0.3], [0.2, 0.05], [0.5, 0.2]]) {
-      ell(c, x * r, y * r, r * 0.05, r * 0.08);
-      c.fill();
-    }
-  },
-  lemon(c, r) {
-    c.fillStyle = clay(c, 0, 0, r, '#FFE24D');
-    ell(c, 0, 0, r * 0.96, r * 0.76);
-    c.fill();
-    ell(c, -r * 1.0, 0, r * 0.12);
-    c.fill();
-    ell(c, r * 1.0, 0, r * 0.12);
-    c.fill();
-    gloss(c, -r * 0.3, -r * 0.3, r * 0.3, r * 0.14, 0.8);
-  },
-  cheese(c, r) {
-    c.fillStyle = vgrad(c, -r, r, '#FFE27D', '#FFC233');
-    c.beginPath();
-    c.moveTo(-r, r * 0.6);
-    c.lineTo(r, r * 0.6);
-    c.lineTo(r, -r * 0.1);
-    c.lineTo(-r * 0.5, -r * 0.7);
-    c.closePath();
-    c.fill();
-    c.fillStyle = '#F2A92E';
-    for (const [x, y, s] of [[-0.3, 0.1, 0.18], [0.4, 0.2, 0.15], [0.1, -0.15, 0.1]]) {
-      ell(c, x * r, y * r, s * r);
-      c.fill();
-    }
-  },
-  icecream(c, r) {
-    c.fillStyle = hgrad(c, -r * 0.4, r * 0.4, '#F2C07E', '#D9944C');
-    c.beginPath();
-    c.moveTo(-r * 0.5, -r * 0.1);
-    c.lineTo(r * 0.5, -r * 0.1);
-    c.lineTo(0, r);
-    c.closePath();
-    c.fill();
-    c.fillStyle = clay(c, 0, -r * 0.4, r * 0.6, '#FFC4DC');
-    ell(c, 0, -r * 0.42, r * 0.6);
-    c.fill();
-  }
-};
-const SOUR = { lemon: 1 };
-
-// ---- Room tools -----------------------------------------------------------------------
-function drawSoap(c, r) {
-  c.fillStyle = clay(c, 0, 0, r, '#FFB3D1');
-  rr(c, -r, -r * 0.62, r * 2, r * 1.24, r * 0.45);
-  c.fill();
-  c.fillStyle = 'rgba(255,255,255,.4)';
-  rr(c, -r * 0.62, -r * 0.34, r * 1.24, r * 0.6, r * 0.3);
-  c.fill();
-  heart(c, 0, -r * 0.05, r * 0.26);
-  c.fillStyle = '#FF7DAE';
-  c.fill();
-  for (const [x, y, s] of [[-r * 0.9, -r * 0.7, 5], [r * 0.9, -r * 0.5, 4], [r * 0.2, -r * 0.9, 3.4]]) {
-    c.fillStyle = 'rgba(255,255,255,.9)';
-    ell(c, x, y, s);
-    c.fill();
-  }
-}
-function drawShower(c, r) {
-  c.save();
-  c.rotate(0.15);
-  c.fillStyle = hgrad(c, -5, 5, '#E6EDF7', '#9EADC9');
-  rr(c, -5, -r * 1.1, 10, r * 1.2, 5);
-  c.fill();
-  c.fillStyle = vgrad(c, -r * 0.1, r * 0.5, '#F2F6FC', '#A8B8D4');
-  c.beginPath();
-  c.moveTo(-r * 0.9, r * 0.44);
-  c.quadraticCurveTo(0, -r * 0.5, r * 0.9, r * 0.44);
-  c.closePath();
-  c.fill();
-  c.fillStyle = '#7A8BB0';
-  for (let i = -3; i <= 3; i++) {
-    ell(c, (i * r) / 4, r * 0.37, 1.8);
-    c.fill();
-  }
-  c.restore();
-}
-function drawTowel(c, r) {
-  c.fillStyle = hgrad(c, -r, r, '#A6DDF7', '#6FC6FF');
-  rr(c, -r * 0.94, -r * 0.8, r * 1.88, r * 1.6, r * 0.34);
-  c.fill();
-  c.fillStyle = 'rgba(255,255,255,.75)';
-  for (const y of [-0.4, 0, 0.4]) {
-    rr(c, -r * 0.84, y * r, r * 1.68, 4.5, 2);
-    c.fill();
-  }
-}
-function drawDuck(c, r) {
-  c.fillStyle = clay(c, 0, r * 0.2, r, '#FFD84D');
-  ell(c, 0, r * 0.25, r, r * 0.72);
-  c.fill();
-  c.fillStyle = clay(c, r * 0.2, -r * 0.5, r * 0.6, '#FFE27D');
-  ell(c, r * 0.24, -r * 0.46, r * 0.58);
-  c.fill();
-  c.fillStyle = '#FF9E50';
-  ell(c, r * 0.84, -r * 0.4, r * 0.28, r * 0.15);
-  c.fill();
-  c.fillStyle = P.ink;
-  ell(c, r * 0.42, -r * 0.6, r * 0.09);
-  c.fill();
-  gloss(c, -r * 0.3, 0, r * 0.3, r * 0.2, 0.6);
-}
+import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape } from '../core/stage.js';
+import { Critter } from '../art/critter3d.js';
 
 const ROOMS = ['bath', 'food', 'bed'];
+const ROOM_X = { bath: -16, food: 0, bed: 16 };
+const FOODS = ['apple', 'strawberry', 'carrot', 'cupcake', 'donut', 'melon', 'cheese', 'icecream', 'lemon'];
+
+// ---- 3D food ------------------------------------------------------------------------
+function makeFood(id) {
+  const g = new THREE.Group();
+  const nc = { cast: false };
+  if (id === 'apple') {
+    mesh(G.sphere(24), M.glossy('#FF4F5E'), { s: [0.42, 0.38, 0.42], parent: g });
+    mesh(G.capsule(1, 6), M.toy('#8A5A30'), { p: [0, 0.4, 0], s: [0.025, 0.08, 0.025], parent: g, ...nc });
+    mesh(G.sphere(10), M.toy('#5FBF72'), { p: [0.1, 0.42, 0], r: [0, 0, -0.6], s: [0.12, 0.05, 0.07], parent: g, ...nc });
+  } else if (id === 'strawberry') {
+    mesh(G.cone(20), M.glossy('#FF3E6C'), { r: [Math.PI, 0, 0], s: [0.34, 0.5, 0.34], parent: g });
+    mesh(G.sphere(16), M.glossy('#FF3E6C'), { p: [0, 0.12, 0], s: [0.34, 0.2, 0.34], parent: g, ...nc });
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU; mesh(G.sphere(8), M.toy('#5FBF72'), { p: [Math.cos(a) * 0.15, 0.3, Math.sin(a) * 0.15], s: [0.1, 0.03, 0.06], r: [0, -a, 0], parent: g, ...nc }); }
+  } else if (id === 'carrot') {
+    mesh(G.cone(16), M.toy('#FF8A3C'), { r: [Math.PI, 0, 0.3], s: [0.2, 0.7, 0.2], parent: g });
+    for (let i = 0; i < 3; i++) mesh(G.capsule(1, 6), M.toy('#5FBF72'), { p: [0.1 + i * 0.04, 0.42, 0], r: [0, 0, -0.3 + i * 0.3], s: [0.03, 0.12, 0.03], parent: g, ...nc });
+  } else if (id === 'cupcake') {
+    mesh(G.cyl(16, 1.25), M.toy('#FFB0D0'), { p: [0, -0.15, 0], s: [0.3, 0.3, 0.3], parent: g });
+    mesh(G.sphere(20), M.plush('#FFF4FA'), { p: [0, 0.1, 0], s: [0.38, 0.24, 0.38], parent: g });
+    mesh(G.sphere(12), M.glossy('#FF3E6C'), { p: [0, 0.34, 0], s: 0.09, parent: g, ...nc });
+  } else if (id === 'donut') {
+    mesh(G.torus(0.45, TAU, 24), M.toy('#E8B27C'), { r: [Math.PI / 2 - 0.5, 0, 0], s: 0.32, parent: g });
+    mesh(G.torus(0.36, TAU, 24), M.glossy('#FF8FC0'), { p: [0, 0.06, 0.03], r: [Math.PI / 2 - 0.5, 0, 0], s: [0.33, 0.33, 0.25], parent: g, ...nc });
+  } else if (id === 'melon') {
+    mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.16, 24, 1, false, 0, Math.PI), M.toy('#FF6F7F'), { r: [Math.PI / 2, 0, 0], parent: g });
+    mesh(new THREE.TorusGeometry(0.45, 0.06, 8, 24, Math.PI), M.toy('#5FBF72'), { r: [0, 0, Math.PI], parent: g, ...nc });
+    for (let i = 0; i < 5; i++) mesh(G.sphere(6), M.basic('#3A2A30'), { p: [Math.cos(0.4 + i * 0.6) * 0.25, -Math.sin(0.4 + i * 0.6) * 0.25, 0.09], s: [0.03, 0.045, 0.01], parent: g, ...nc });
+    g.rotation.z = Math.PI;
+  } else if (id === 'cheese') {
+    mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 3), M.toy('#FFD45C'), { r: [0, 0.3, 0], parent: g });
+    for (let i = 0; i < 3; i++) mesh(G.sphere(8), M.toy('#E8B53C'), { p: [rand(-0.15, 0.15), 0.15, rand(-0.1, 0.1)], s: [0.06, 0.02, 0.06], parent: g, ...nc });
+  } else if (id === 'icecream') {
+    mesh(G.cone(16), M.toy('#E8A85C'), { p: [0, -0.2, 0], r: [Math.PI, 0, 0], s: [0.22, 0.5, 0.22], parent: g });
+    mesh(G.sphere(18), M.toy('#FFB3CF'), { p: [0, 0.12, 0], s: 0.25, parent: g });
+    mesh(G.sphere(16), M.toy('#9FE8C8'), { p: [0, 0.34, 0], s: 0.2, parent: g, ...nc });
+  } else if (id === 'lemon') {
+    mesh(G.sphere(22), M.glossy('#FFE14D'), { s: [0.42, 0.3, 0.3], parent: g });
+    for (const k of [-1, 1]) mesh(G.sphere(10), M.glossy('#FFE14D'), { p: [k * 0.42, 0, 0], s: [0.07, 0.06, 0.06], parent: g, ...nc });
+  }
+  g.userData.food = id;
+  return g;
+}
+
+// ---- bathroom tools ---------------------------------------------------------------------
+function makeTool(id) {
+  const g = new THREE.Group();
+  if (id === 'soap') {
+    mesh(G.box(0.25), M.glossy('#FFB3E0'), { s: [0.7, 0.32, 0.45], parent: g });
+    mesh(G.puffy('soapHeart', heartShapeS(), 0.1, 0.05), M.glossy('#FF6FAE'), { p: [0, 0.17, 0], r: [-Math.PI / 2, 0, 0], s: 0.1, parent: g, cast: false });
+  } else if (id === 'shower') {
+    mesh(G.capsule(1, 10), M.metal('#DDE3F0'), { p: [0, -0.4, 0], s: [0.08, 0.35, 0.08], parent: g });
+    mesh(G.cyl(24, 1.2), M.metal('#DDE3F0'), { p: [0, 0.1, 0], s: [0.35, 0.16, 0.35], parent: g });
+    mesh(G.cyl(24), M.toy('#9FD8FF'), { p: [0, 0.01, 0], s: [0.32, 0.02, 0.32], parent: g, cast: false });
+  } else if (id === 'towel') {
+    for (let i = 0; i < 3; i++) mesh(G.box(0.25), M.plush(i % 2 ? '#FFE066' : '#8FD0FF'), { p: [0, i * 0.12, 0], s: [0.8, 0.14, 0.5], parent: g });
+  } else if (id === 'duck') {
+    mesh(G.sphere(20), M.glossy('#FFD84D'), { s: [0.36, 0.28, 0.3], parent: g });
+    mesh(G.sphere(16), M.glossy('#FFD84D'), { p: [0.14, 0.27, 0], s: 0.2, parent: g });
+    mesh(G.sphere(10), M.glossy('#FF9E50'), { p: [0.34, 0.25, 0], s: [0.12, 0.05, 0.08], parent: g, cast: false });
+    for (const k of [-1, 1]) mesh(G.sphere(6), M.glossy('#2B1D48'), { p: [0.24, 0.33, k * 0.1], s: 0.03, parent: g, cast: false });
+  }
+  g.userData.tool = id;
+  return g;
+}
+let heartSS = null;
+function heartShapeS() {
+  if (heartSS) return heartSS;
+  heartSS = new THREE.Shape();
+  heartSS.moveTo(0, -0.9);
+  heartSS.bezierCurveTo(-1.5, 0.1, -0.72, 1.05, 0, 0.32);
+  heartSS.bezierCurveTo(0.72, 1.05, 1.5, 0.1, 0, -0.9);
+  return heartSS;
+}
+
+function tileTex(a, b) {
+  return canvasTex(128, 128, (x, w, h) => {
+    x.fillStyle = a; x.fillRect(0, 0, w, h);
+    x.fillStyle = b;
+    x.fillRect(0, 0, w, 4); x.fillRect(0, 0, 4, h);
+    x.fillRect(0, h / 2, w, 4); x.fillRect(w / 2, 0, 4, h);
+  }, { repeat: true });
+}
 
 export const pet = {
   tint: '#8FD8FF',
@@ -223,801 +105,579 @@ export const pet = {
   enter() {
     const d = save.data;
     this.t = 0;
-    this.W = app.W;
-    this.H = app.H;
     this.id = d.friends.includes(d.pet) ? d.pet : d.friends[d.friends.length - 1];
-    this.room = 'bath';
-    this.sq = new Spring(1, 280, 10);
-    this.hopY = 0; this.hopV = 0;
-    this.expr = null;
-    this.exprT = 0;
-    this.look = { x: 0, y: 0 };
-    this.mouth = 0;
+    const st = this.stage = new Stage({ bg: '#FFE9F2', fov: 34, keyPos: [-4, 10, 8], shadowArea: 7, hemi: 0.7, sky: '#FFFFFF', ground: '#FFD6E6', env: 0.7 });
+    this.world = group(st.scene);
+    this.buildRooms();
+    this.earned = {};
     this.belly = 0;
+    this.wet = 0;
+    this.sleepK = 0;
+    this.makePet();
     this.layout();
     this.setRoom('bath', true);
-    this.earned = {};
-    this.makeButtons();
+    st.snap(this.pose());
+    this.buttons = this.makeButtons();
     music.play('pet');
   },
 
-  layout() {
-    const W = this.W = app.W, H = this.H = app.H;
-    this.cx = W / 2;
-    this.R = clamp(Math.min(W * 0.27, H * 0.13), 84, 130);
-    this.py = H * 0.4;
-    this.tabY = H - 42 - app.safeBottom * 0.6;
-    this.trayY = this.tabY - 84;
+  exit() {
+    if (this.critter) this.critter.dispose();
+    if (this.showerLoop) this.showerLoop.stop();
+    this.stage.dispose();
   },
-  resize() { this.layout(); this.setRoom(this.room, true); this.makeButtons(); },
+
+  makePet() {
+    if (this.critter) { this.critter.root.parent && this.critter.root.parent.remove(this.critter.root); this.critter.dispose(); }
+    const c = this.critter = new Critter(this.id, { size: 1.15 });
+    this.world.add(c.root);
+    this.foam = [];
+    this.mud = [];
+  },
+
+  // ---- rooms -------------------------------------------------------------------------
+  buildRooms() {
+    const W = this.world;
+    // floor and back wall run through all three rooms
+    const floorT = tileTex('#FFFFFF', '#E9E4F4');
+    floorT.repeat.set(30, 6);
+    mesh(G.plane(), new THREE.MeshStandardMaterial({ map: floorT, roughness: 0.6 }), { r: [-Math.PI / 2, 0, 0], p: [0, 0, 0], s: [70, 14, 1], receive: true, cast: false, parent: W });
+    const walls = [['#BFEFFF', '#A8E2F8', -16], ['#FFF0D8', '#FFE2BC', 0], ['#5E4FB8', '#5246A8', 16]];
+    for (const [a, b, x] of walls) {
+      const t = tileTex(a, b);
+      t.repeat.set(8, 4);
+      mesh(G.plane(), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }), { p: [x, 5, -4], s: [16, 10, 1], receive: true, cast: false, parent: W });
+    }
+    // bathroom: a big tub full of water and bubbles
+    const tub = this.tub = group(W, [ROOM_X.bath, 0, 0]);
+    mesh(G.puck(0.35), M.glossy('#FFFFFF'), { p: [0, 0.75, 0], s: [2.5, 1.5, 1.5], parent: tub });
+    this.water = mesh(G.cyl(40), new THREE.MeshPhysicalMaterial({ color: '#8FDCFF', roughness: 0.05, transmission: 0.5, thickness: 0.5, transparent: true, opacity: 0.85, clearcoat: 1 }), { p: [0, 1.35, 0], s: [2.3, 0.05, 1.3], parent: tub, cast: false });
+    for (let i = 0; i < 18; i++) mesh(G.sphere(12), M.bubble({ opacity: 0.5 }), { p: [rand(-2, 2), 1.42, rand(-1.1, 1.1)], s: rand(0.15, 0.32), parent: tub, cast: false });
+    for (const k of [-1, 1]) mesh(G.sphere(12), M.metal('#FFC93C'), { p: [k * 2.1, 0.12, 0.9], s: [0.18, 0.15, 0.18], parent: tub, cast: false });
+    this.duckToy = makeTool('duck');
+    this.duckToy.position.set(1.4, 1.5, 0.7);
+    tub.add(this.duckToy);
+    this.duckSq = new Spring(1, 300, 9);
+    // a mirror and a towel rail
+    mesh(G.puck(0.2), M.toy('#FFFFFF'), { p: [ROOM_X.bath - 4.5, 4.2, -3.9], r: [Math.PI / 2, 0, 0], s: [1.2, 0.1, 1.4], parent: W, cast: false });
+    mesh(G.circle(32), M.metal('#E8F4FF', { roughness: 0.05 }), { p: [ROOM_X.bath - 4.5, 4.2, -3.84], s: [1.05, 1.25, 1], parent: W, cast: false });
+    // kitchen: a table with a checked cloth, a high stool
+    const table = this.table = group(W, [ROOM_X.food, 0, 0.6]);
+    mesh(G.puck(0.2), new THREE.MeshStandardMaterial({ map: checkTex(), roughness: 0.8 }), { p: [0, 1.25, 0], s: [2.6, 0.12, 1.4], parent: table, receive: true });
+    for (const x of [-1.8, 1.8]) mesh(G.cyl(10), M.toy('#E0A87C'), { p: [x, 0.6, 0], s: [0.14, 1.2, 0.14], parent: table });
+    mesh(G.puck(0.4), M.glossy('#FFFFFF'), { p: [0, 1.36, 0.4], s: [1.6, 0.08, 0.7], parent: table, receive: true });
+    // shelves with jars
+    for (let i = 0; i < 4; i++) mesh(G.cyl(16), M.glossy(['#FF8FC0', '#FFE066', '#9FE8A8', '#8FD0FF'][i], { transparent: true, opacity: 0.8 }), { p: [ROOM_X.food - 4 + i * 0.7, 4.3, -3.6], s: [0.25, 0.5, 0.25], parent: W });
+    mesh(G.box(0.05), M.toy('#E0A87C'), { p: [ROOM_X.food - 2.95, 4.0, -3.6], s: [3.2, 0.12, 0.6], parent: W });
+    // bedroom: a bed with a pillow and blanket, a lamp, a window to the night
+    const bed = this.bed = group(W, [ROOM_X.bed, 0, 0]);
+    mesh(G.box(0.3), M.toy('#FF9FC3'), { p: [0, 1.6, -1.4], s: [3.6, 2.4, 0.4], parent: bed });
+    mesh(G.box(0.3), M.plush('#E6DAFF'), { p: [0, 0.6, 0], s: [3.4, 0.8, 2.6], parent: bed, receive: true });
+    mesh(G.box(0.4), M.plush('#FFFFFF'), { p: [0, 1.15, -0.85], s: [1.8, 0.4, 0.7], parent: bed, receive: true });
+    this.blanket = group(bed, [0, 1.05, 1.25]);
+    mesh(G.box(0.15), new THREE.MeshPhysicalMaterial({ map: starsTex(), roughness: 0.85, sheen: 1, sheenColor: new THREE.Color('#ffffff') }), { p: [0, 0, -0.85], s: [3.5, 0.22, 1.8], parent: this.blanket });
+    this.blanketK = 0;
+    this.lampG = group(W, [ROOM_X.bed + 3.4, 0, -0.6]);
+    mesh(G.box(0.1), M.toy('#FFFFFF'), { p: [0, 0.6, 0], s: [0.9, 1.2, 0.9], parent: this.lampG });
+    mesh(G.cyl(8), M.toy('#C9C6DA'), { p: [0, 1.5, 0], s: [0.05, 0.8, 0.05], parent: this.lampG, cast: false });
+    this.shade = mesh(G.cyl(20, 0.6), M.toy('#FFD45C', { emissive: '#FFC233', emissiveIntensity: 0.8 }), { p: [0, 2.05, 0], s: [0.55, 0.5, 0.55], parent: this.lampG, cast: false });
+    this.lampLight = new THREE.PointLight('#FFD48A', 10, 9, 1.4);
+    this.lampLight.position.set(0, 1.8, 0.3);
+    this.lampG.add(this.lampLight);
+    this.lampOn = true;
+    this.lampK = 1;
+    const win = group(W, [ROOM_X.bed - 3.2, 4.6, -3.9]);
+    mesh(G.box(0.1), M.toy('#FFFFFF'), { s: [2.4, 2.8, 0.2], parent: win, cast: false });
+    mesh(G.plane(), M.basic('#1C1A58'), { p: [0, 0, 0.11], s: [2.1, 2.5, 1], parent: win, cast: false });
+    mesh(G.sphere(16), M.basic('#FFF3C4'), { p: [0.5, 0.6, 0.15], s: 0.3, parent: win, cast: false });
+    for (let i = 0; i < 9; i++) mesh(G.sphere(6), M.basic('#FFF8D8'), { p: [rand(-0.9, 0.9), rand(-1.1, 1.1), 0.14], s: 0.04, parent: win, cast: false });
+    // the mobile of stars above the bed
+    this.mobileG = group(W, [ROOM_X.bed, 5.2, 0.2]);
+    mesh(G.torus(0.04, TAU, 32), M.toy('#FFFFFF'), { r: [Math.PI / 2, 0, 0], s: 1, parent: this.mobileG, cast: false });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * TAU;
+      mesh(G.cyl(4), M.basic('#FFFFFF'), { p: [Math.cos(a), -0.4, Math.sin(a)], s: [0.01, 0.8, 0.01], parent: this.mobileG, cast: false });
+      mesh(G.puffy('mstar', starShape(5, 1, 0.5), 0.3, 0.15), M.glossy(['#FFD45C', '#FF8FC0', '#8FD0FF', '#B48BFF', '#9FE8A8'][i], { emissive: '#FFE680', emissiveIntensity: 0.2 }), { p: [Math.cos(a), -0.85, Math.sin(a)], s: 0.2, parent: this.mobileG, cast: false });
+    }
+    this.mobileSpin = new Spring(0, 20, 1.2);
+    // night sky stars that appear on the ceiling and walls when the lamp goes off
+    const sg = new THREE.BufferGeometry(), sp = new Float32Array(240);
+    for (let i = 0; i < 80; i++) { sp[i * 3] = ROOM_X.bed + rand(-7, 7); sp[i * 3 + 1] = rand(2.5, 9); sp[i * 3 + 2] = -3.9; }
+    sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    this.nightStars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#FFF2A8', size: 0.22, transparent: true, opacity: 0 }));
+    W.add(this.nightStars);
+  },
+
+  layout() {
+    this.wide = app.W > app.H;
+  },
+  pose() {
+    const x = ROOM_X[this.room];
+    return this.stage.pose(V(x, 2.2, 0.2), this.wide ? 9.5 : 6.6, this.wide ? 6.2 : 9.2, [0, 0.3, 1]);
+  },
+  resize() {
+    this.layout();
+    this.stage.snap(this.pose());
+    this.placeButtons();
+    this.placeTray();
+  },
 
   makeButtons() {
-    const tabIcon = (name) => (c, r) => {
+    const tab = (name) => (c, r) => {
       const on = this.room === name;
       candy(c, r, { bath: P.sky, food: P.coral, bed: P.violet }[name], on);
-      c.save();
-      if (name === 'bath') {
-        c.fillStyle = '#fff';
-        rr(c, -14, -2, 28, 12, 6);
-        c.fill();
-        for (const [x, y, s] of [[-6, -7, 4], [2, -10, 5], [9, -6, 3]]) {
-          ell(c, x, y, s);
-          c.fill();
-        }
-      } else if (name === 'food') {
-        c.scale(0.72, 0.72);
-        FOODS.apple(c, 20);
-      } else {
-        c.fillStyle = '#FFF3C4';
-        c.beginPath();
-        c.arc(-1, 0, 14, 0.9, 5.2);
-        c.arc(5, -3, 11, 5, 1.1, true);
-        c.fill();
-      }
-      c.restore();
-      if (on) {
-        c.lineWidth = 3;
-        c.strokeStyle = '#fff';
-        ell(c, 0, -1, r - 2);
-        c.stroke();
-      }
+      c.fillStyle = '#fff';
+      if (name === 'bath') { rr(c, -14, -2, 28, 12, 6); c.fill(); for (const [x, y, s] of [[-6, -7, 4], [2, -10, 5], [9, -6, 3]]) { ell(c, x, y, s); c.fill(); } }
+      else if (name === 'food') { c.fillStyle = '#FF4F5E'; ell(c, 0, 2, 12, 11); c.fill(); c.fillStyle = '#5FBF72'; ell(c, 4, -11, 5, 3, -0.5); c.fill(); }
+      else { c.fillStyle = '#FFF3C4'; c.beginPath(); c.arc(-1, 0, 14, 0.9, 5.2); c.arc(5, -3, 11, 5, 1.1, true); c.fill(); }
+      if (on) { c.lineWidth = 3; c.strokeStyle = '#fff'; ell(c, 0, -1, r - 2); c.stroke(); }
     };
-    this.buttons = ROOMS.map((name, i) => new Btn({
-      x: this.cx + (i - 1) * 76, y: this.tabY, r: 29, slop: 6,
-      paint: tabIcon(name),
-      tap: () => { if (this.room !== name) this.setRoom(name); }
-    }));
+    const b = ROOMS.map((name) => new Btn({ r: 29, slop: 6, name, paint: tab(name), tap: () => { if (this.room !== name) this.setRoom(name); } }));
     if (save.data.friends.length > 1) {
-      this.buttons.push(new Btn({
-        x: this.W - 44, y: Math.max(app.safeTop, 10) + 34, r: 27, slop: 10,
+      b.push(new Btn({
+        r: 27, slop: 10, name: 'next',
         paint: (c, r) => {
           candy(c, r, P.butter);
-          const fr = save.data.friends, nx = fr[(fr.indexOf(this.id) + 1) % fr.length];
-          drawCreature(c, nx, { R: r * 0.56, t: this.t });
+          c.fillStyle = '#FF8FB8'; ell(c, 0, 2, 12, 11); c.fill();
+          c.fillStyle = '#2B1D48'; ell(c, -4, 0, 2, 2.6); c.fill(); ell(c, 4, 0, 2, 2.6); c.fill();
+          c.strokeStyle = '#fff'; c.lineWidth = 3; c.lineCap = 'round';
+          c.beginPath(); c.moveTo(14, -12); c.lineTo(19, -7); c.lineTo(14, -2); c.stroke();
         },
-        tap: () => {
-          const fr = save.data.friends;
-          this.id = fr[(fr.indexOf(this.id) + 1) % fr.length];
-          save.data.pet = this.id;
-          save.touch();
-          this.hopV = -420;
-          this.sq.kick(5);
-          audio.voice('wow', FRIENDS[this.id].voice);
-          fx.sparkle(this.cx, this.py, 16);
-        }
+        tap: () => this.nextFriend()
       }));
     }
+    this.btns = b;
+    this.placeButtons(b);
+    return b;
+  },
+  placeButtons(b = this.btns) {
+    if (!b) return;
+    const y = app.H - Math.max(app.safeBottom, 6) - 40;
+    b.forEach((x, i) => {
+      if (x.name === 'next') { x.x = app.W - 44; x.y = Math.max(app.safeTop, 10) + 34; }
+      else { x.x = app.W / 2 + (i - 1) * 76; x.y = y; }
+    });
+  },
+
+  nextFriend() {
+    const fr = save.data.friends;
+    this.id = fr[(fr.indexOf(this.id) + 1) % fr.length];
+    save.data.pet = this.id;
+    save.touch();
+    this.makePet();
+    this.placePet();
+    this.critter.hop(6);
+    this.critter.say('yay', 0.6);
+    if (this.room === 'bath') this.setupBath();
+    audio.sfx('pop');
   },
 
   setRoom(name, silent) {
     const prev = this.room;
     this.room = name;
-    this.hold = null;
-    this.tools = [];
-    this.foam = [];
-    if (!silent) {
-      audio.sfx('swish');
-      audio.note('marimba', penta(ROOMS.indexOf(name) + 2), { vol: 0.55 });
-      this.hopV = -300;
+    hint.clear();
+    if (this.trayItems) for (const t of this.trayItems) t.g.parent && t.g.parent.remove(t.g);
+    this.trayItems = [];
+    if (prev === 'bath' && name !== 'bath') {
+      const c = this.critter;
+      for (const f of this.foam) c.yaw.remove(f.m);
+      for (const m of this.mud) c.yaw.remove(m.m);
+      this.foam = []; this.mud = [];
+      this.wet = 0;
     }
+    if (!silent) { audio.sfx('whoosh', { vol: 0.6 }); audio.note('marimba', penta(ROOMS.indexOf(name) + 2), { vol: 0.5 }); }
+    this.placePet();
     if (name === 'bath') this.setupBath();
     if (name === 'food') this.setupFood();
     if (name === 'bed') this.setupBed();
     if (name === 'bed') music.play('night');
     else if (prev === 'bed') music.play('pet');
+    this.critter.hop(5);
   },
 
-  petPos() { return { x: this.cx, y: this.py + this.hopY }; },
-  say(type) { audio.voice(type, FRIENDS[this.id].voice); },
-  feel(expr, time = 1) { this.expr = expr; this.exprT = time; },
+  placePet() {
+    const c = this.critter;
+    c.sleep = false;
+    if (this.room === 'bath') { c.root.position.set(ROOM_X.bath, 0.9, 0.1); }
+    else if (this.room === 'food') { c.root.position.set(ROOM_X.food, 1.32, -0.15); }
+    else { c.root.position.set(ROOM_X.bed, 1.0, -0.35); }
+    c.root.rotation.set(0, 0, 0);
+    this.petBase = c.root.position.clone();
+  },
 
   earn(room) {
     if (this.earned[room]) return;
     this.earned[room] = 1;
     save.earnStar();
     audio.fanfare();
-    fx.confetti(this.W, this.H, 60);
-    this.hopV = -460;
-    this.feel('heart', 1.8);
+    fx.confetti(app.W, app.H, 70);
+    this.critter.hop(7);
+    this.critter.setMood('love', 2);
   },
 
-  // ---- BATH --------------------------------------------------------------------------
-  setupBath() {
-    this.py = this.H * 0.36;
-    const x = this.cx, y = this.trayY, gap = Math.min(82, (this.W - 30) / 3.6);
-    this.tools = [
-      { id: 'soap', x: x - gap * 1.5, y, hx: x - gap * 1.5, hy: y, r: 27, paint: drawSoap, s: 1 },
-      { id: 'shower', x: x - gap * 0.5, y, hx: x - gap * 0.5, hy: y, r: 27, paint: drawShower, s: 1 },
-      { id: 'towel', x: x + gap * 0.5, y, hx: x + gap * 0.5, hy: y, r: 27, paint: drawTowel, s: 1 },
-      { id: 'duck', x: x + gap * 1.5, y, hx: x + gap * 1.5, hy: y, r: 24, paint: drawDuck, s: 1 }
-    ];
-    // Muddy spots: a real reason to wash, and very satisfying when they vanish
-    // Spots go round the face, never over it: she should still see who she's washing
-    const spots = [[-0.62, -0.56], [0.1, -0.74], [0.66, -0.5], [-0.84, 0.0], [0.86, 0.04], [-0.5, 0.56], [0.1, 0.62], [0.58, 0.52], [-0.22, -0.48]];
-    this.mud = spots.map(([x, y]) => ({ x: x * this.R + rand(-5, 5), y: y * this.R + rand(-5, 5), r: rand(11, 19), a: 1, seed: rand(9) }));
-    this.foam = [];
-    this.wet = 0;
-    this.drops = [];
-    this.bathStage = 0;
-    this.duck = { x: this.cx + this.R * 1.1, ph: 0, on: true };
-    if (!save.data.seen.bath) hint.set({ from: [this.tools[0].x, this.tools[0].y], to: [this.cx, this.py], delay: 1.2 });
-  },
-
-  bathTool(tool, x, y, dx, dy) {
-    const pp = this.petPos(), near = dist(x, y, pp.x, pp.y) < this.R * 1.05;
-    if (tool.id === 'soap' && near) {
-      const speed = Math.hypot(dx, dy);
-      if (speed > 0.8 && this.foam.length < 90) {
-        const n = 1 + (speed > 8 ? 1 : 0);
-        for (let i = 0; i < n; i++) {
-          this.foam.push({ x: x - pp.x + rand(-13, 13), y: y - pp.y + rand(-13, 13), r: rand(10, 21), s: 0, p: rand(TAU) });
-        }
-        audio.sfx('scrub', { rate: rand(0.8, 1.3), vol: 0.75, gap: 70 });
-        if (Math.random() < 0.05) audio.sfx('plip', { rate: rand(1, 1.6), vol: 0.5, gap: 100 });
-        this.sq.kick(rand(-0.8, 0.8));
-        if (!this.exprT) this.feel('happy', 0.7);
-        if (Math.random() < 0.025) this.say('giggle');
-        // Mud loosens under the foam
-        for (const m of this.mud) {
-          if (dist(m.x, m.y, x - pp.x, y - pp.y) < m.r + 20) m.a = Math.max(0.25, m.a - 0.06);
-        }
-        if (Math.random() < 0.35) fx.add({ kind: 'bubble', x, y, vx: rand(-40, 40), vy: rand(-110, -30), g: -30, size: rand(9, 18), life: 1, color: P.sky });
-        if (!save.data.seen.bath) { save.data.seen.bath = 1; hint.clear(); }
-        if (this.foam.length > 22 && this.bathStage === 0) {
-          this.bathStage = 1;
-          hint.set({ from: [this.tools[1].x, this.tools[1].y], to: [this.cx, this.py - this.R], delay: 2.4 });
-        }
-      }
-    }
-  },
-
-  stepShower(dt) {
-    const tool = this.hold && this.hold.id === 'shower' ? this.hold : null;
-    if (tool) {
-      for (let i = 0; i < 3; i++) {
-        this.drops.push({ x: tool.x + rand(-18, 18), y: tool.y + 18, vy: rand(320, 440), vx: rand(-14, 14) });
-      }
-      if (Math.floor(this.t * 6) !== Math.floor((this.t - dt) * 6)) audio.sfx('pour', { rate: rand(0.9, 1.1), vol: 0.75, gap: 90 });
-    }
-    const pp = this.petPos();
-    for (const d of this.drops) {
-      d.vy += 900 * dt;
-      d.x += d.vx * dt;
-      d.y += d.vy * dt;
-      const lx = d.x - pp.x, ly = d.y - pp.y;
-      if (lx * lx + ly * ly < this.R * this.R * 1.05) {
-        d.dead = Math.random() < 0.6;
-        for (let k = this.foam.length - 1; k >= 0; k--) {
-          if (dist(this.foam[k].x, this.foam[k].y, lx, ly) < this.foam[k].r + 8) {
-            this.foam[k].r -= 4;
-            if (this.foam[k].r < 6) this.foam.splice(k, 1);
-            break;
-          }
-        }
-        for (const m of this.mud) {
-          if (dist(m.x, m.y, lx, ly) < m.r + 9) m.a -= m.a < 0.3 ? 0.08 : 0.03;
-        }
-        this.wet = Math.min(1, this.wet + dt * 0.3);
-      }
-      if (d.y > this.H * 0.68) d.dead = true;
-    }
-    this.drops = this.drops.filter((d) => !d.dead);
-    this.mud = this.mud.filter((m) => m.a > 0);
-    if (tool && !this.foam.length && !this.mud.length && this.bathStage < 2) {
-      this.bathStage = 2;
-      hint.set({ from: [this.tools[2].x, this.tools[2].y], to: [this.cx, this.py], delay: 2 });
-    }
-    if (tool && !this.foam.length && this.mud.length && Math.random() < 0.01) this.feel('happy', 0.5);
-  },
-
-  towelRub(x, y, dx, dy) {
-    const pp = this.petPos();
-    if (dist(x, y, pp.x, pp.y) > this.R * 1.2) return;
-    const sp = Math.hypot(dx, dy);
-    if (sp < 1) return;
-    this.wet = Math.max(0, this.wet - sp * 0.0022);
-    this.sq.kick(rand(-0.7, 0.7));
-    if (Math.random() < 0.3) fx.sparkle(x, y, 1);
-    audio.sfx('swish', { rate: rand(0.7, 1.1), vol: 0.6, gap: 110 });
-    if (this.bathStage === 2 && this.wet <= 0.02) {
-      this.bathStage = 3;
-      hint.clear();
-      this.sparkle = 3.5;
-      this.earn('bath');
-      this.say('giggle');
-    }
-  },
-
-  // ---- KITCHEN -------------------------------------------------------------------------
-  setupFood() {
-    this.py = this.H * 0.4;
-    const names = Object.keys(FOODS);
-    const pickFoods = ['lemon', ...names.filter((n) => n !== 'lemon').sort(() => Math.random() - 0.5).slice(0, 4)].sort(() => Math.random() - 0.5);
-    const n = pickFoods.length, gap = Math.min(70, (this.W - 16) / n);
-    this.tools = pickFoods.map((id, i) => ({
-      id, food: true, x: this.cx + (i - (n - 1) / 2) * gap, y: this.trayY - 4, hx: this.cx + (i - (n - 1) / 2) * gap, hy: this.trayY - 4, r: 26, s: 1, paint: FOODS[id], bites: 0
-    }));
-    this.fed = 0;
-    this.chewT = 0;
-    if (!save.data.seen.feed) hint.set({ from: [this.tools[1].x, this.tools[1].y], to: [this.cx, this.py + 22], delay: 1.2 });
-  },
-
-  bite(food) {
-    food.bites++;
-    this.chewT = 0.7;
-    this.mouth = 1;
-    audio.sfx('chew', { rate: rand(0.9, 1.15), vol: 0.9 });
-    wait(0.18, () => audio.sfx('chew', { rate: rand(1, 1.25), vol: 0.7 }));
-    fx.burst(this.cx + rand(-14, 14), this.py + this.R * 0.3, { kind: 'dot', n: 5, colors: ['#FFD0A0', '#FFE0C0', '#F7B26A'], speed: 90, size: 7, g: 500, life: 0.6, spin: 0 });
-    this.sq.kick(-3);
-    haptic();
-    if (!save.data.seen.feed) { save.data.seen.feed = 1; hint.clear(); }
-    wait(0.75, () => {
-      if (this.room !== 'food') return;
-      if (SOUR[food.id]) {
-        this.feel('sour', 1.9);
-        this.say('sour');
-        this.shiver = 1.6;
-        this.sq.kick(6);
-      } else {
-        this.feel(Math.random() < 0.55 ? 'heart' : 'happy', 1.3);
-        this.say('yum');
-        fx.hearts(this.cx, this.py - this.R * 0.3, 6);
-      }
-      this.belly = Math.min(1, this.belly + 0.24);
-      this.fed++;
-      if (this.fed === 3 || this.fed === 6) {
-        wait(1.35, () => {
-          if (this.room !== 'food') return;
-          this.say('burp');
-          this.belly *= 0.35;
-          this.sq.kick(-7);
-          this.feel('wow', 0.8);
-          fx.bubbles(this.cx, this.py + this.R * 0.2, 3);
-        });
-        wait(2.3, () => this.earn('food'));
-      }
+  // ---- tray of tools / food on the floor in front --------------------------------------------
+  placeTray() {
+    const n = this.trayItems.length;
+    if (!n) return;
+    const x0 = ROOM_X[this.room];
+    const sp = this.wide ? 1.35 : 1.0;
+    this.trayItems.forEach((t, i) => {
+      t.home = V(x0 + (i - (n - 1) / 2) * sp, this.room === 'food' ? 0.6 : 0.5, 2.6);
+      if (!t.held) t.g.position.copy(t.home);
     });
   },
 
-  // ---- BEDROOM ----------------------------------------------------------------------------
-  setupBed() {
-    this.py = this.H * 0.46;
-    this.lamp = 1;
-    this.lampOn = true;
-    this.blanket = 0;
-    this.sleep = 0;
-    this.mobile = new Spring(0, 40, 2);
-    this.lullT = 0;
-    this.lullStep = 0;
-    this.moon = 0;
-    if (!save.data.seen.bed) hint.set({ from: [this.cx + this.R * 0.2, this.py + this.R * 0.9], to: [this.cx + this.R * 0.2, this.py + this.R * 0.3], delay: 1.5 });
+  setupBath() {
+    const c = this.critter;
+    for (const f of this.foam) f.m.parent && f.m.parent.remove(f.m);
+    for (const m of this.mud) m.m.parent && m.m.parent.remove(m.m);
+    this.foam = [];
+    this.mud = [];
+    // muddy spots around the body, never over the face
+    const spots = [[-1.2, 0.4], [1.2, 0.5], [-0.9, 0.95], [0.8, 0.9], [2.4, 0.2], [-2.4, 0.3], [0.2, 1.25], [1.6, -0.1], [-1.6, -0.1]];
+    for (const [a, e] of spots) {
+      const m = mesh(G.sphere(12), M.toy('#9A6A48', { roughness: 0.95 }), { s: [rand(0.14, 0.22), rand(0.1, 0.16), 0.05], cast: false });
+      c.stick(m, a, e, 0.0, c.yaw);
+      this.mud.push({ m, a: 1 });
+    }
+    this.bathStage = 0;
+    this.wet = 0;
+    this.trayItems = ['soap', 'shower', 'towel'].map((id) => ({ id, g: makeTool(id) }));
+    for (const t of this.trayItems) this.world.add(t.g);
+    this.placeTray();
+    if (!save.data.seen.bath) wait(0.8, () => this.hintTool(0));
+  },
+  hintTool(i) {
+    const t = this.trayItems[i];
+    if (!t) return;
+    const a = this.stage.toScreen(t.home), b = this.stage.objScreen(this.critter.body);
+    hint.set({ from: [a.x, a.y], to: [b.x, b.y], delay: 1.4 });
   },
 
+  setupFood() {
+    const pickF = ['lemon', ...FOODS.filter((f) => f !== 'lemon').sort(() => Math.random() - 0.5).slice(0, 4)].sort(() => Math.random() - 0.5);
+    this.trayItems = pickF.map((id) => ({ id, g: makeFood(id), bites: 0 }));
+    for (const t of this.trayItems) { t.g.scale.setScalar(1.3); this.world.add(t.g); }
+    this.placeTray();
+    this.fed = 0;
+    if (!save.data.seen.feed) wait(0.8, () => this.hintTool(1));
+  },
+
+  setupBed() {
+    this.blanketK = 0;
+    this.lampOn = true;
+    this.sleepK = 0;
+    this.lullT = 0;
+    this.lullStep = 0;
+    const s = this.stage.toScreen(V(ROOM_X.bed, 1.2, 1.2));
+    if (!save.data.seen.bed) wait(0.8, () => hint.set({ from: [s.x, s.y + 40], to: [s.x, s.y - 50], delay: 1.5 }));
+  },
+
+  // ---- per frame ----------------------------------------------------------------------------
   update(dt) {
     this.t += dt;
-    this.sq.step(dt);
-    this.hopV += 1100 * dt;
-    this.hopY += this.hopV * dt;
-    if (this.hopY > 0) {
-      if (this.hopV > 200) this.sq.kick(-4);
-      this.hopY = 0;
-      this.hopV = 0;
-    }
-    this.exprT = Math.max(0, this.exprT - dt);
-    if (this.exprT <= 0) this.expr = null;
-    if (this.shiver > 0) this.shiver -= dt;
-    if (this.sparkle > 0) this.sparkle -= dt;
-    this.chewT = Math.max(0, this.chewT - dt);
-
-    for (const f of this.foam) f.s = Math.min(1, f.s + dt * 7);
-    if (this.room === 'bath') {
-      this.stepShower(dt);
-      this.duck.ph += dt;
-    }
+    const t = this.t, st = this.stage, c = this.critter;
+    st.glide(this.pose(), dt, 3.5);
+    // belly grows with every snack
+    c.body.scale.set(c.rx * (1 + this.belly * 0.12), c.ry, c.rz * (1 + this.belly * 0.18));
+    if (this.shiver > 0) { this.shiver -= dt; c.root.position.x = this.petBase.x + Math.sin(t * 55) * 0.04 * clamp(this.shiver); }
+    // wet fur shines
+    c.bodyMat.clearcoat = 0.45 + this.wet * 0.55;
+    c.bodyMat.roughness = 0.48 - this.wet * 0.35;
+    for (const f of this.foam) { f.k = Math.min(1, f.k + dt * 6); f.m.scale.setScalar(f.s * f.k * (1 + Math.sin(t * 3 + f.s * 20) * 0.04)); }
+    // shower water
+    if (this.room === 'bath') this.stepShower(dt);
+    const dk = this.duckSq.step(dt);
+    this.duckToy.scale.set(1 / Math.sqrt(dk), dk, 1 / Math.sqrt(dk));
+    this.duckToy.position.y = 1.5 + Math.sin(t * 2) * 0.04;
+    this.duckToy.position.x = 1.4 + Math.sin(t * 0.5) * 0.3;
+    this.duckToy.rotation.y = Math.sin(t * 0.7) * 0.6;
+    // food: the mouth opens as food comes close
     if (this.room === 'food') {
-      const h = this.hold;
-      let open = 0;
-      if (h && h.food) {
-        const d = dist(h.x, h.y, this.cx, this.py + this.R * 0.2);
-        open = clamp(1 - (d - 40) / 170);
-      }
-      this.mouth += (Math.max(open, this.chewT > 0 ? 0 : 0) - this.mouth) * Math.min(1, dt * 12);
+      const held = this.trayItems.find((x) => x.held);
+      if (held) {
+        const mp = c.mouth.getWorldPosition(V());
+        const d = held.g.position.distanceTo(mp);
+        c.look(held.g.position);
+        if (d < 2.2 && c.talkT <= 0 && this.chewT <= 0) { c.mood = 'wow'; c.moodT = 0.2; }
+      } else c.look(st.camera.position);
+      this.chewT = Math.max(0, (this.chewT || 0) - dt);
+      if (this.chewT > 0) { c.mood = 'eat'; c.moodT = 0.2; }
+    } else c.look(st.camera.position);
+    // bedroom
+    this.lampK += ((this.lampOn ? 1 : 0) - this.lampK) * Math.min(1, dt * 5);
+    if (this.room === 'bed' || this.lampK < 0.99) {
+      const L = this.lampK;
+      this.lampLight.intensity = 10 * L;
+      this.shade.material.emissiveIntensity = 0.1 + 0.7 * L;
+      const inBed = this.room === 'bed';
+      st.key.intensity = inBed ? lerp(0.6, 2.9, L) : 2.9;
+      st.hemi.intensity = inBed ? lerp(0.25, 0.7, L) : 0.7;
+      this.nightStars.material.opacity = inBed ? (1 - L) * 0.95 : 0;
     }
+    this.blanket.position.z = lerp(1.25, 1.25, this.blanketK);
+    this.blanket.position.y = lerp(1.05, 1.15, this.blanketK);
+    this.blanket.scale.z = lerp(0.35, 1.05, this.blanketK);
+    this.blanket.position.z = lerp(1.3, 1.95, this.blanketK);
+    this.mobileG.rotation.y += (0.15 + this.mobileSpin.step(dt)) * dt;
     if (this.room === 'bed') {
-      this.mobile.step(dt);
-      this.lamp += ((this.lampOn ? 1 : 0) - this.lamp) * Math.min(1, dt * 5);
-      const wants = !this.lampOn && this.blanket > 0.6;
-      this.sleep += ((wants ? 1 : 0) - this.sleep) * Math.min(1, dt * 1.5);
+      const wants = !this.lampOn && this.blanketK > 0.6;
+      this.sleepK += ((wants ? 1 : 0) - this.sleepK) * Math.min(1, dt * 1.2);
+      c.sleep = this.sleepK > 0.6;
       if (wants) {
         this.lullT -= dt;
         if (this.lullT <= 0) {
           this.lullT = 0.62;
           const song = [0, 2, 4, 2, 5, 4, 2, 1, 0, 2, 3, 2, 4, 2, 1, 0];
-          audio.note('bell', penta(song[this.lullStep++ % song.length]), { vol: 0.3, wet: 0.9 });
+          audio.note('bell', penta(song[this.lullStep++ % song.length]), { vol: 0.28, wet: 0.9 });
         }
-        if (this.sleep > 0.8 && !this.earned.bed) {
-          wait(4, () => {
-            if (this.room === 'bed' && this.sleep > 0.8 && !this.earned.bed) {
-              this.earned.bed = 1;
-              save.earnStar();
-              fx.burst(this.W * 0.76, this.H * 0.18, { kind: 'star', n: 16, colors: [P.butter, '#fff'], speed: 180, size: 16, g: 80 });
-              audio.sparkle(3, 5, 0.3);
-            }
-          });
-          this.earned.bedWaiting = 1;
+        if (this.sleepK > 0.85 && !this.earned.bed && !this.bedWait) {
+          this.bedWait = true;
+          wait(3.5, () => { this.bedWait = false; if (this.room === 'bed' && this.sleepK > 0.8) { this.earned.bed = 1; save.earnStar(); audio.sparkle(3, 5, 0.3); const s = st.toScreen(V(ROOM_X.bed - 3.2, 4.6, -3.8)); fx.burst(s.x, s.y, { kind: 'star', n: 16, colors: [P.butter, '#fff'], speed: 180, size: 16, g: 80 }); } });
         }
+        if (c.sleep && Math.random() < dt * 0.7) { const s = st.toScreen(c.body.getWorldPosition(V()).add(V(0.6, 1.2, 0))); this.zzz.push({ x: s.x, y: s.y, t: 0 }); }
       }
+    } else c.sleep = false;
+    this.zzz = (this.zzz || []).filter((z) => (z.t += dt) < 2.4);
+    // tray items bob until picked up
+    for (const it of this.trayItems) {
+      if (it.held) continue;
+      it.g.position.lerp(it.home, Math.min(1, dt * 8));
+      it.g.position.y = it.home.y + Math.sin(t * 2 + it.home.x) * 0.06;
+      it.g.rotation.y = Math.sin(t * 0.8 + it.home.x) * 0.5;
     }
+    c.update(dt);
   },
 
-  drawPet(c, opts = {}) {
-    const { x, y } = this.petPos();
-    const shiverX = this.shiver > 0 ? Math.sin(this.t * 55) * 4 * clamp(this.shiver) : 0;
-    const q = this.sq.x;
-    const lookX = clamp((this.look.x - x) / 120, -1, 1), lookY = clamp((this.look.y - y) / 130, -1, 1);
-    c.save();
-    c.translate(x + shiverX, y);
-    const sleepy = this.room === 'bed' ? this.sleep : 0;
-    let eyes = this.expr || (sleepy > 0.5 ? 'closed' : 'open');
-    let mouth = this.expr === 'sour' ? 'sour' : this.chewT > 0 ? 'chew' : 'smile';
-    drawCreature(c, this.id, {
-      R: this.R, t: this.t, sx: (2 - q) * (1 + this.belly * 0.12), sy: q, eyes, mouth, mouthOpen: this.chewT > 0 ? 0 : (this.expr === 'happy' || this.expr === 'wow' ? 0.7 : this.mouth), blink: this.expr ? 0 : blinkAt(this.t, 3),
-      lookX, lookY, wob: this.sq.v * 0.1, sparkly: this.sparkle > 0, blush: this.expr ? 1 : 0, wave: opts.wave
-    });
-    c.restore();
-  },
-
-  drawBath(c) {
-    const W = this.W, H = this.H, R = this.R;
-    const back = softBack('bath', W, H, '#BFEEFF', '#E6FBFF', (x) => {
-      // Tiled wall
-      const s = 58;
-      x.strokeStyle = 'rgba(255,255,255,.65)';
-      x.lineWidth = 3;
-      for (let i = 0; i < W / s + 1; i++) { x.beginPath(); x.moveTo(i * s, 0); x.lineTo(i * s, H); x.stroke(); }
-      for (let i = 0; i < H / s + 1; i++) { x.beginPath(); x.moveTo(0, i * s); x.lineTo(W, i * s); x.stroke(); }
-      x.fillStyle = vgrad(x, H * 0.66, H, '#FFE1EC', '#FFC7DE');
-      x.fillRect(0, H * 0.66, W, H);
-    });
-    c.drawImage(back.cv, 0, 0, W, H);
-
-    const tubY = this.py + R * 0.8;
-    const tubW = Math.min(W * 0.46, R * 1.78);
-    // Rear rim of the tub
-    c.fillStyle = '#E6F2FF';
-    ell(c, this.cx, tubY, tubW, R * 0.2);
-    c.fill();
-
-    this.drawPet(c);
-
-    // Mud & foam live on the pet
-    const pp = this.petPos();
-    c.save();
-    c.translate(pp.x, pp.y);
-    for (const m of this.mud) {
-      c.fillStyle = alpha('#8A5A3C', m.a * 0.9);
-      ell(c, m.x, m.y, m.r, m.r * 0.84, m.seed);
-      c.fill();
-      c.fillStyle = alpha('#74482E', m.a * 0.6);
-      ell(c, m.x + m.r * 0.26, m.y + m.r * 0.18, m.r * 0.42);
-      c.fill();
-    }
-    for (const f of this.foam) {
-      const r = f.r * f.s * (1 + Math.sin(this.t * 3 + f.p) * 0.03);
-      c.fillStyle = clay(c, f.x, f.y, r, '#FFFFFF');
-      ell(c, f.x, f.y, r);
-      c.fill();
-    }
-    c.restore();
-    if (this.wet > 0.2) {
-      c.fillStyle = `rgba(160,220,255,${this.wet * 0.4})`;
-      for (let i = 0; i < 6; i++) {
-        const x = pp.x + Math.cos(i * 2.4) * R * 0.75, y = pp.y + Math.sin(i * 1.7) * R * 0.7 + ((this.t * 30 + i * 20) % 26);
-        ell(c, x, y, 3.2, 5);
-        c.fill();
+  stepShower(dt) {
+    const held = this.trayItems.find((x) => x.held && x.id === 'shower');
+    this.drops = this.drops || [];
+    if (held) {
+      const head = held.g.position;
+      for (let i = 0; i < 2; i++) {
+        const m = mesh(G.sphere(6), M.glossy('#8FDCFF', { transparent: true, opacity: 0.8 }), { p: [head.x + rand(-0.25, 0.25), head.y - 0.1, head.z + rand(-0.25, 0.25)], s: 0.05, parent: this.world, cast: false });
+        this.drops.push({ m, v: V(rand(-0.3, 0.3), -rand(5, 7), rand(-0.3, 0.3)) });
       }
-    }
-
-    // Water and front of the tub
-    c.save();
-    c.beginPath();
-    c.ellipse(this.cx, tubY, tubW, R * 0.2, 0, 0, TAU);
-    c.clip();
-    c.fillStyle = vgrad(c, tubY - 20, tubY + 20, '#BFEFFF', '#7FD6F5');
-    c.fillRect(0, tubY - 40, W, 80);
-    c.restore();
-    // Foam cresting the water
-    for (let i = 0; i < 11; i++) {
-      const x = this.cx - tubW * 0.84 + (i * tubW * 1.68) / 10, r = 15 + Math.sin(i * 2.1 + this.t * 1.4) * 2 + (i % 3) * 2;
-      c.fillStyle = clay(c, x, tubY + 2, r, '#FFFFFF');
-      ell(c, x, tubY + 3, r);
-      c.fill();
-    }
-    c.fillStyle = hgrad(c, this.cx - tubW, this.cx + tubW, '#DDE9FF', '#FFFFFF', '#FFFFFF', '#CBDAF5');
-    c.beginPath();
-    c.moveTo(this.cx - tubW, tubY);
-    c.quadraticCurveTo(this.cx, tubY + R * 0.32, this.cx + tubW, tubY);
-    c.bezierCurveTo(this.cx + tubW, tubY + R * 1.04, this.cx + tubW * 0.76, tubY + R * 1.16, this.cx, tubY + R * 1.16);
-    c.bezierCurveTo(this.cx - tubW * 0.76, tubY + R * 1.16, this.cx - tubW, tubY + R * 1.04, this.cx - tubW, tubY);
-    c.fill();
-    gloss(c, this.cx - tubW * 0.5, tubY + R * 0.46, tubW * 0.3, R * 0.14, 0.9);
-    c.fillStyle = '#FFC233';
-    for (const k of [-1, 1]) {
-      ell(c, this.cx + k * tubW * 0.72, tubY + R * 1.16, 12, 7);
-      c.fill();
-    }
-
-    // Duck on the water
-    const dk = this.duck;
-    if (dk.on) {
-      c.save();
-      c.translate(this.cx - tubW * 0.72 + Math.sin(dk.ph * 0.5) * 8, tubY - 12 + Math.sin(dk.ph * 2) * 2);
-      c.rotate(Math.sin(dk.ph * 1.6) * 0.08);
-      drawDuck(c, 15);
-      c.restore();
-    }
-
-    // Water droplets
-    c.fillStyle = '#7FD0FF';
+      if (!this.showerLoop) this.showerLoop = audio.loop('hiss', 0.12, 1.3);
+    } else if (this.showerLoop) { this.showerLoop.stop(); this.showerLoop = null; }
+    const c = this.critter;
+    const cp = c.body.getWorldPosition(V());
+    const R = c.ry * c.size * 1.05;
     for (const d of this.drops) {
-      ell(c, d.x, d.y, 2.6, 5);
-      c.fill();
-    }
-  },
-
-  drawFood(c) {
-    const W = this.W, H = this.H, R = this.R;
-    const back = softBack('kitchen', W, H, '#FFE7C7', '#FFD7C4', (x) => {
-      x.fillStyle = 'rgba(255,255,255,.5)';
-      for (let i = 0; i < 6; i++) {
-        for (let k = 0; k < 11; k++) {
-          if ((i + k) % 2) x.fillRect(i * (W / 5), k * 72, W / 5, 72);
+      d.v.y -= 12 * dt;
+      d.m.position.addScaledVector(d.v, dt);
+      if (d.m.position.distanceTo(cp) < R) {
+        d.dead = true;
+        const local = c.yaw.worldToLocal(d.m.position.clone());
+        // rinse the nearest foam and mud
+        for (let k = this.foam.length - 1; k >= 0; k--) {
+          if (this.foam[k].m.position.distanceTo(local) < 0.55) { this.foam[k].s -= 0.04; if (this.foam[k].s < 0.05) { c.yaw.remove(this.foam[k].m); this.foam.splice(k, 1); } break; }
         }
+        for (const m of this.mud) {
+          if (m.m.position.distanceTo(local) < 0.6 && !this.foam.length) { m.a -= 0.06; m.m.material = M.toy('#9A6A48', { roughness: 0.95, transparent: true, opacity: Math.max(0, m.a) }); }
+        }
+        this.wet = Math.min(1, this.wet + dt * 0.35);
+        if (Math.random() < 0.02) c.say('giggle', 0.3);
       }
-      // Window with a little scene
-      const wx = W * 0.7, wy = 80 + app.safeTop;
-      x.fillStyle = '#fff';
-      rr(x, wx - 8, wy - 8, 116, 116, 20);
-      x.fill();
-      x.fillStyle = vgrad(x, wy, wy + 100, '#9EE0FF', '#E6FFF2');
-      rr(x, wx, wy, 100, 100, 14);
-      x.fill();
-      x.save();
-      rr(x, wx, wy, 100, 100, 14);
-      x.clip();
-      x.fillStyle = '#8FE292';
-      ell(x, wx + 28, wy + 104, 56, 30);
-      x.fill();
-      x.fillStyle = '#7CD38F';
-      ell(x, wx + 84, wy + 108, 50, 30);
-      x.fill();
-      x.fillStyle = '#fff';
-      for (const [cx, cy, r] of [[wx + 26, wy + 28, 12], [wx + 40, wy + 24, 15], [wx + 54, wy + 30, 10]]) {
-        ell(x, cx, cy, r);
-        x.fill();
-      }
-      x.fillStyle = '#FFD45C';
-      ell(x, wx + 80, wy + 22, 11);
-      x.fill();
-      x.restore();
-      // Table
-      x.fillStyle = vgrad(x, H * 0.58, H, '#FFF6EC', '#F3D7BE');
-      x.fillRect(0, H * 0.585, W, H);
-    });
-    c.drawImage(back.cv, 0, 0, W, H);
-    groundShadow(c, this.cx, this.py + R * 0.96, R * 1.05, R * 0.2);
-    this.drawPet(c);
-    // Bib
-    const { x, y } = this.petPos();
-    c.fillStyle = 'rgba(255,255,255,.92)';
-    c.beginPath();
-    c.moveTo(x - R * 0.46, y + R * 0.46);
-    c.quadraticCurveTo(x, y + R * 0.6, x + R * 0.46, y + R * 0.46);
-    c.quadraticCurveTo(x + R * 0.38, y + R * 0.92, x, y + R * 0.94);
-    c.quadraticCurveTo(x - R * 0.38, y + R * 0.92, x - R * 0.46, y + R * 0.46);
-    c.fill();
-    heart(c, x, y + R * 0.71, R * 0.12);
-    c.fillStyle = P.rose;
-    c.fill();
-    // Serving tray
-    c.fillStyle = '#FFFFFF';
-    rr(c, 10, this.trayY - 44, W - 20, 82, 26);
-    c.fill();
-    c.lineWidth = 3;
-    c.strokeStyle = '#F7D9B8';
-    c.stroke();
-  },
-
-  drawBed(c) {
-    const W = this.W, H = this.H, R = this.R, lamp = this.lamp;
-    const back = softBack('bedroom', W, H, '#3A3190', '#6A52B8', (x) => {
-      // Wallpaper dots
-      x.fillStyle = 'rgba(255,255,255,.05)';
-      for (let i = 0; i < 90; i++) {
-        ell(x, (i * 83.3) % W, (i * 47.9) % H, 5);
-        x.fill();
-      }
-      const wx = W * 0.62, wy = app.safeTop + 58;
-      const ww = Math.min(130, W * 0.3), wh = ww * 1.18;
-      x.fillStyle = '#FFFFFF';
-      rr(x, wx - 8, wy - 8, ww + 16, wh + 16, 18);
-      x.fill();
-      x.fillStyle = vgrad(x, wy, wy + wh, '#1C1A58', '#4A3AA0');
-      rr(x, wx, wy, ww, wh, 12);
-      x.fill();
-      x.fillStyle = clay(x, wx + ww * 0.62, wy + wh * 0.3, 18, '#FFF3C4');
-      ell(x, wx + ww * 0.62, wy + wh * 0.3, 18);
-      x.fill();
-      for (let i = 0; i < 12; i++) {
-        softStar(x, wx + 8 + ((i * 47) % (ww - 14)), wy + 8 + ((i * 29) % (wh - 14)), 2.4, 4, 0.4);
-        x.fillStyle = '#FFF8D8';
-        x.fill();
-      }
-      x.fillStyle = vgrad(x, H * 0.7, H, '#7C5AC0', '#5A3F9C');
-      x.fillRect(0, H * 0.7, W, H);
-    });
-    c.drawImage(back.cv, 0, 0, W, H);
-
-    const bedY = this.py + R * 0.74, bedW = Math.min(W * 0.44, R * 1.9);
-    // Headboard
-    c.fillStyle = vgrad(c, this.py - R * 1.1, bedY, '#FFD0E3', '#FF9FC3');
-    rr(c, this.cx - bedW * 0.94, this.py - R * 1.1, bedW * 1.88, R * 2, R * 0.6);
-    c.fill();
-    c.fillStyle = 'rgba(255,255,255,.25)';
-    rr(c, this.cx - bedW * 0.72, this.py - R * 0.92, bedW * 1.44, R * 0.24, R * 0.12);
-    c.fill();
-    // Pillow
-    c.fillStyle = clay(c, this.cx, this.py - R * 0.32, R, '#FFFFFF');
-    rr(c, this.cx - R * 1.12, this.py - R * 0.8, R * 2.24, R * 0.96, R * 0.4);
-    c.fill();
-
-    this.drawPet(c);
-
-    // Mattress
-    c.fillStyle = hgrad(c, this.cx - bedW, this.cx + bedW, '#E6DAFF', '#FFFFFF', '#E6DAFF');
-    rr(c, this.cx - bedW, bedY, bedW * 2, R * 0.8, R * 0.26);
-    c.fill();
-    // Blanket pulled up by a finger
-    const blk = this.blanket;
-    const top = lerp(bedY + R * 0.22, this.py + R * 0.34, blk);
-    c.fillStyle = vgrad(c, top, bedY + R * 0.8, '#8FC8FF', '#6FA8F5');
-    rr(c, this.cx - bedW * 1.02, top, bedW * 2.04, bedY + R * 0.82 - top, R * 0.3);
-    c.fill();
-    c.fillStyle = 'rgba(255,255,255,.55)';
-    rr(c, this.cx - bedW * 1.02, top, bedW * 2.04, R * 0.2, R * 0.1);
-    c.fill();
-    for (let i = 0; i < 14; i++) {
-      const x = this.cx - bedW * 0.88 + ((i * 53) % (bedW * 1.76)), y = top + R * 0.32 + ((i * 37) % Math.max(10, bedY + R * 0.7 - top - R * 0.32));
-      softStar(c, x, y, 5.5);
-      c.fillStyle = 'rgba(255,255,255,.6)';
-      c.fill();
+      if (d.m.position.y < 1.3) d.dead = true;
+      if (d.dead) this.world.remove(d.m);
     }
-
-    // Zzz bubbles
-    if (this.sleep > 0.5) {
-      for (let i = 0; i < 3; i++) {
-        const u = (this.t * 0.26 + i / 3) % 1;
-        c.fillStyle = alpha('#FFFFFF', 0.8 * (1 - u));
-        ell(c, this.cx + R * 0.7 + u * R * 0.5, this.py - R * 0.6 - u * R * 0.9, 4 + u * 13);
-        c.fill();
-      }
-    }
-
-    // Lamp on a little table
-    const lx = this.lampX = Math.max(46, this.cx - bedW - 8), ly = this.lampY = bedY - 16;
-    c.fillStyle = '#C89462';
-    rr(c, lx - 20, ly + 40, 40, 70, 8);
-    c.fill();
-    c.fillStyle = '#F2E2FF';
-    rr(c, lx - 3.5, ly, 7, 42, 3);
-    c.fill();
-    c.fillStyle = vgrad(c, ly - 44, ly, this.lampOn ? '#FFF6B8' : '#B9A8D8', this.lampOn ? '#FFD45C' : '#8F7EB8');
-    c.beginPath();
-    c.moveTo(lx - 12, ly - 44);
-    c.lineTo(lx + 12, ly - 44);
-    c.lineTo(lx + 28, ly);
-    c.lineTo(lx - 28, ly);
-    c.closePath();
-    c.fill();
-
-    // Dim the room with the lamp; glow around it
-    if (lamp < 1) {
-      c.fillStyle = `rgba(18,12,60,${(1 - lamp) * 0.52})`;
-      c.fillRect(0, 0, W, H);
-    }
-    if (lamp > 0.02) {
-      c.save();
-      c.globalCompositeOperation = 'lighter';
-      glow(c, lx, ly - 16, 210, '#FFD680', 0.5 * lamp);
-      c.restore();
-    }
-    // Night-time ceiling stars from the night-light
-    if (lamp < 0.5) {
-      for (let i = 0; i < 16; i++) {
-        const x = (i * 97.7) % W, y = ((i * 53.3) % (H * 0.3)) + 40, k = 0.5 + 0.5 * Math.sin(this.t * 2 + i);
-        softStar(c, x, y, 4 + k * 3, 4, 0.4);
-        c.fillStyle = `rgba(255,245,190,${(1 - lamp * 2) * (0.4 + 0.5 * k)})`;
-        c.fill();
-      }
-    }
-
-    // Hanging mobile
-    const mx = this.cx - R * 0.1, my = app.safeTop + 28;
-    c.save();
-    c.translate(mx, my);
-    c.rotate(this.mobile.x * 0.3);
-    c.strokeStyle = 'rgba(255,255,255,.8)';
-    c.lineWidth = 2;
-    c.beginPath(); c.moveTo(0, -30); c.lineTo(0, 10); c.moveTo(-52, 10); c.lineTo(52, 10); c.stroke();
-    [[-52, 34, P.butter], [0, 48, P.pink], [52, 34, P.sky]].forEach(([x, l, col], i) => {
-      const sw = Math.sin(this.t * 1.1 + i * 2) * 4;
-      c.beginPath(); c.moveTo(x, 10); c.lineTo(x + sw, 10 + l); c.stroke();
-      softStar(c, x + sw, 10 + l + 11, 13);
-      c.fillStyle = col;
-      c.fill();
-    });
-    c.restore();
-    this.mobilePos = { x: mx, y: my + 44 };
+    this.drops = this.drops.filter((d) => !d.dead);
+    for (let i = this.mud.length - 1; i >= 0; i--) if (this.mud[i].a <= 0) { c.yaw.remove(this.mud[i].m); this.mud.splice(i, 1); }
+    if (held && !this.foam.length && !this.mud.length && this.bathStage < 2) { this.bathStage = 2; this.hintTool(2); }
   },
 
   draw(c) {
-    if (this.room === 'bath') this.drawBath(c);
-    if (this.room === 'food') this.drawFood(c);
-    if (this.room === 'bed') this.drawBed(c);
-
-    // Bottom shelf
-    for (const b of this.buttons) b.draw(c);
-    for (const t of this.tools) {
-      if (t === this.hold) continue;
-      this.drawTool(c, t);
+    for (const z of this.zzz || []) {
+      c.save();
+      c.globalAlpha = clamp(1 - z.t / 2.4) * 0.9;
+      c.fillStyle = '#FFF4C8';
+      c.font = `800 ${16 + z.t * 10}px -apple-system, system-ui, sans-serif`;
+      c.fillText('z', z.x + Math.sin(z.t * 3) * 10, z.y - z.t * 40);
+      c.restore();
     }
-    if (this.hold) this.drawTool(c, this.hold);
+    for (const b of this.buttons) b.draw(c);
   },
 
-  drawTool(c, t) {
-    c.save();
-    c.translate(t.x, t.y + (t === this.hold ? -6 : Math.sin(this.t * 2 + t.hx) * 1.6));
-    const on = t === this.hold ? 1.28 : 1;
-    c.scale(on * (t.s || 1), on * (t.s || 1));
-    if (t.food && t.bites) c.scale(1 - t.bites * 0.3, 1 - t.bites * 0.3);
-    t.paint(c, t.r);
-    c.restore();
-  },
-
-  // ---- input -----------------------------------------------------------------------
+  // ---- input ---------------------------------------------------------------------------
   down(p) {
-    this.look.x = p.x; this.look.y = p.y;
-    for (let i = this.tools.length - 1; i >= 0; i--) {
-      const t = this.tools[i];
-      if (dist(p.x, p.y, t.x, t.y) < t.r + 16) {
-        if (t.id === 'duck') {
-          this.say('coo');
-          audio.sfx('boing', { rate: 1.4 });
-          fx.bubbles(t.x, t.y, 5);
-          t.s = 1.3;
-          tween(t, { s: 1 }, 0.3, { ease: E.elastic });
-          return;
-        }
-        this.hold = t;
-        p.tool = t;
-        t.x = p.x;
-        t.y = p.y;
+    const st = this.stage, c = this.critter;
+    // tray: pick up a tool or a snack
+    for (const it of this.trayItems) {
+      const s = st.objScreen(it.g);
+      if (dist(p.x, p.y, s.x, s.y) < 46) {
+        it.held = true;
+        p.item = it;
         audio.sfx('tap', { rate: 1.1 });
+        haptic();
+        this.moveItem(p);
         return;
       }
     }
+    if (this.room === 'bath') {
+      const s = st.objScreen(this.duckToy);
+      if (dist(p.x, p.y, s.x, s.y) < 40) { this.duckSq.kick(-6); audio.sfx('squeak'); audio.voice('coo', 1.3, 0.3); fx.bubbles(s.x, s.y, 5); return; }
+    }
     if (this.room === 'bed') {
-      if (dist(p.x, p.y, this.lampX, this.lampY - 20) < 46) {
+      const ls = st.objScreen(this.shade);
+      if (dist(p.x, p.y, ls.x, ls.y) < 60) {
         this.lampOn = !this.lampOn;
         audio.sfx('tick', { vol: 1 });
         audio.note('marimba', this.lampOn ? 72 : 67, { vol: 0.5 });
         haptic();
-        if (!this.lampOn) wait(0.3, () => this.say('yawn'));
+        if (!this.lampOn) wait(0.3, () => c.say('yawn', 0.5));
+        save.data.seen.bed = 1;
         return;
       }
-      if (this.mobilePos && dist(p.x, p.y, this.mobilePos.x, this.mobilePos.y) < 76) {
-        this.mobile.kick(rand(-2.4, 2.4));
-        audio.sparkle(Math.floor(rand(0, 4)), 3, 0.35);
-        return;
-      }
-      const bedY = this.py + this.R * 0.74;
-      const top = lerp(bedY + this.R * 0.22, this.py + this.R * 0.34, this.blanket);
-      if (p.y > top - 22 && p.y < bedY + this.R && Math.abs(p.x - this.cx) < this.R * 2) {
-        p.blanket = true;
-        p.blank0 = this.blanket;
-        return;
-      }
+      const ms = st.objScreen(this.mobileG);
+      if (dist(p.x, p.y, ms.x, ms.y + 30) < 80) { this.mobileSpin.kick(3); audio.sparkle(Math.floor(rand(0, 4)), 3, 0.35); return; }
+      const bs = st.toScreen(V(ROOM_X.bed, 1.2, lerp(1.4, 1.9, this.blanketK)));
+      if (dist(p.x, p.y, bs.x, bs.y) < 140 && p.y > st.objScreen(c.body).y - 10) { p.blanket = { y0: p.y, k0: this.blanketK }; hint.clear(); return; }
     }
-    const pp = this.petPos();
-    if (dist(p.x, p.y, pp.x, pp.y) < this.R * 1.1) {
-      this.sq.kick(5);
-      this.feel(pick(['happy', 'happy', 'wow', 'heart']), 0.9);
-      this.say(pick(['giggle', 'coo', 'chirp']));
-      fx.hearts(p.x, p.y, 4);
+    const hit = st.pick(p.x, p.y, [c.root]);
+    if (hit) {
+      if (c.sleep) { c.say('snore', 0.4); c.poke(0.3); return; }
+      c.poke();
+      c.hop(5);
+      c.setMood(pick(['happy', 'love', 'wow']), 1);
+      c.say(pick(['giggle', 'yay', 'hehe', 'mew']), 0.6);
+      fx.hearts(p.x, p.y - 10, 5);
       haptic();
-      if (this.room === 'bed' && this.sleep > 0.4) this.sleep = 0;
-      p.tickle = true;
       return;
     }
     fx.sparkle(p.x, p.y, 4);
   },
 
+  moveItem(p) {
+    const it = p.item;
+    const w = this.stage.onFacing(p.x, p.y, V(ROOM_X[this.room], 2, 1.2));
+    if (!w) return;
+    w.z = Math.min(w.z, 2.6);
+    const prev = it.g.position.clone();
+    it.g.position.copy(w);
+    it.g.rotation.set(0, 0, it.id === 'shower' ? Math.PI : 0);
+    if (it.id === 'shower') it.g.position.y = Math.max(w.y, 3.2);
+    const c = this.critter;
+    const cp = c.body.getWorldPosition(V());
+    const near = w.distanceTo(cp) < c.ry * c.size * 1.6;
+    if (it.id === 'soap' && near) {
+      const speed = w.distanceTo(prev);
+      if (speed > 0.02 && this.foam.length < 70) {
+        // foam where the soap touches the fur
+        const dir = w.clone().sub(cp).normalize();
+        // keep the face clear so she can still see who she is washing
+        if (dir.z > 0.55 && dir.y > -0.5 && dir.y < 0.6) { dir.x += Math.sign(dir.x || 1) * 0.9; dir.y += 0.5; dir.normalize(); }
+        const surf = cp.clone().addScaledVector(dir, c.ry * c.size * 0.95);
+        const local = c.yaw.worldToLocal(surf);
+        const m = mesh(G.sphere(12), M.plush('#FFFFFF', { sheenColor: new THREE.Color('#E8F4FF') }), { p: [local.x + rand(-0.1, 0.1), local.y + rand(-0.1, 0.1), local.z], s: 0.01, parent: c.yaw, cast: false });
+        this.foam.push({ m, s: rand(0.14, 0.26), k: 0 });
+        audio.sfx('scrub', { rate: rand(0.8, 1.3), vol: 0.7, gap: 70 });
+        if (Math.random() < 0.05) c.say('giggle', 0.4);
+        c.setMood('happy', 0.4);
+        for (const md of this.mud) if (md.m.position.distanceTo(local) < 0.5) md.loose = true;
+        if (Math.random() < 0.3) { const s = this.stage.toScreen(surf); fx.add({ kind: 'bubble', x: s.x, y: s.y, vx: rand(-40, 40), vy: rand(-110, -30), g: -30, size: rand(9, 18), life: 1, color: P.sky }); }
+        if (!save.data.seen.bath) { save.data.seen.bath = 1; hint.clear(); }
+        if (this.foam.length > 18 && this.bathStage === 0) { this.bathStage = 1; this.hintTool(1); }
+      }
+    }
+    if (it.id === 'towel' && near && this.bathStage >= 2) {
+      const sp = w.distanceTo(prev);
+      if (sp > 0.02) {
+        this.wet = Math.max(0, this.wet - sp * 0.25);
+        c.poke(0.2);
+        audio.sfx('swish', { rate: rand(0.7, 1.1), vol: 0.5, gap: 110 });
+        if (Math.random() < 0.3) fx.sparkle(p.x, p.y, 1);
+        if (this.wet <= 0.02 && this.bathStage === 2) { this.bathStage = 3; hint.clear(); this.earn('bath'); c.say('giggle', 0.6); }
+      }
+    }
+  },
+
   move(p) {
-    this.look.x = p.x; this.look.y = p.y;
-    if (p.tool) {
-      const dx = p.x - p.px, dy = p.y - p.py;
-      p.tool.x = p.x;
-      p.tool.y = p.y;
-      if (this.room === 'bath') {
-        if (p.tool.id === 'soap') this.bathTool(p.tool, p.x, p.y, dx, dy);
-        if (p.tool.id === 'towel') this.towelRub(p.x, p.y, dx, dy);
-      }
-      return;
-    }
+    if (p.item) { this.moveItem(p); return; }
     if (p.blanket) {
-      const k = (p.sy - p.y) / (this.R * 0.9);
-      const was = this.blanket;
-      this.blanket = clamp(p.blank0 + k);
-      if (Math.abs(was - this.blanket) > 0.02) audio.sfx('swish', { rate: 0.7, vol: 0.5, gap: 120 });
-      if (this.blanket > 0.6 && !save.data.seen.bed) {
-        save.data.seen.bed = 1;
-        hint.set({ from: [this.lampX, this.lampY - 20], delay: 1.2 });
-      }
-      return;
-    }
-    if (p.tickle && Math.hypot(p.x - p.px, p.y - p.py) > 3 && Math.random() < 0.08) {
-      this.say('giggle');
-      this.sq.kick(rand(-2, 2));
-      fx.hearts(p.x, p.y, 1);
+      this.blanketK = clamp(p.blanket.k0 + (p.blanket.y0 - p.y) / 160);
+      if (Math.random() < 0.2) audio.sfx('swish', { vol: 0.3, gap: 120 });
     }
   },
 
   up(p) {
-    if (p.tickle) p.tickle = false;
-    if (p.blanket && this.blanket > 0.7) {
-      audio.sfx('swish', { rate: 0.55 });
-      this.sq.kick(1);
-    }
-    const t = p.tool;
-    if (!t) return;
-    if (this.hold === t) this.hold = null;
-    if (t.food) {
-      const d = dist(t.x, t.y, this.cx, this.py + this.R * 0.2);
-      if (d < this.R * 1.25) {
-        // Eaten: this food slot refills with something new
-        t.x = t.hx;
-        t.y = t.hy + 110;
-        const others = Object.keys(FOODS).filter((n) => !this.tools.some((q) => q.id === n));
-        this.bite({ id: t.id });
-        const nid = pick(others);
-        t.id = nid;
-        t.paint = FOODS[nid];
-        tween(t, { y: t.hy }, 0.42, { ease: E.back, delay: 0.3 });
-        return;
+    const it = p.item;
+    if (it) {
+      it.held = false;
+      if (this.room === 'food') {
+        const c = this.critter;
+        const mp = c.mouth.getWorldPosition(V());
+        if (it.g.position.distanceTo(mp) < 1.7) this.bite(it);
       }
+      return;
     }
-    tween(t, { x: t.hx, y: t.hy }, 0.3, { ease: E.back });
-    if (this.room === 'bath' && t.id === 'shower' && !this.foam.length && !this.mud.length) this.sq.kick(4);
+    if (p.blanket) {
+      if (this.blanketK > 0.6) { this.blanketK = 1; audio.sfx('swish', { vol: 0.5 }); this.critter.setMood('love', 1); }
+      p.blanket = null;
+    }
+  },
+
+  bite(it) {
+    const c = this.critter;
+    it.bites++;
+    this.chewT = 0.75;
+    save.data.seen.feed = 1;
+    hint.clear();
+    audio.sfx('chew', { rate: rand(0.9, 1.15), vol: 0.9 });
+    wait(0.2, () => audio.sfx('chew', { rate: rand(1, 1.25), vol: 0.7 }));
+    const s = this.stage.objScreen(c.mouth);
+    fx.burst(s.x, s.y, { kind: 'dot', n: 6, colors: ['#FFD0A0', '#FFE0C0', '#F7B26A'], speed: 90, size: 7, g: 500, life: 0.6, spin: 0 });
+    c.poke(0.6);
+    haptic();
+    // the snack gets smaller with every bite
+    const k = 1.3 * (1 - it.bites * 0.3);
+    if (it.bites >= 3) {
+      this.world.remove(it.g);
+      this.trayItems = this.trayItems.filter((x) => x !== it);
+      this.placeTray();
+      if (!this.trayItems.length) wait(1, () => { if (this.room === 'food') this.setupFood(); });
+    } else it.g.scale.setScalar(k);
+    wait(0.8, () => {
+      if (this.room !== 'food') return;
+      if (it.id === 'lemon') {
+        c.setMood('wow', 1.6);
+        c.say('sour', 0.7);
+        this.shiver = 1.4;
+        c.poke(1.4);
+      } else {
+        c.setMood(Math.random() < 0.5 ? 'love' : 'happy', 1.2);
+        c.say(pick(['yum', 'mmm']), 0.65);
+        fx.hearts(s.x, s.y - 30, 6);
+      }
+      this.belly = Math.min(1, this.belly + 0.16);
+      this.fed++;
+      if (this.fed === 4 || this.fed === 8) {
+        wait(1.3, () => {
+          if (this.room !== 'food') return;
+          c.say('burp', 0.7);
+          this.belly *= 0.35;
+          c.poke(1.5);
+          c.setMood('wow', 0.8);
+          fx.bubbles(s.x, s.y, 3);
+        });
+        wait(2.3, () => this.earn('food'));
+      }
+    });
   }
 };
+
+let checkT = null, starsT = null;
+function checkTex() {
+  return checkT || (checkT = canvasTex(128, 128, (x, w, h) => {
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#FF9FB8';
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if ((i + j) % 2) x.fillRect(i * 16, j * 16, 16, 16);
+  }));
+}
+function starsTex() {
+  return starsT || (starsT = canvasTex(256, 128, (x, w, h) => {
+    x.fillStyle = '#8C7FE0'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#FFE680';
+    for (let i = 0; i < 24; i++) { softStar(x, (i * 47) % w, (i * 29) % h, 6, 5, 0.5); x.fill(); }
+  }));
+}

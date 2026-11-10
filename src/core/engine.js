@@ -3,6 +3,7 @@ import { audio } from './audio.js';
 import { fx } from './fx.js';
 import { P, E, clamp, dist, ell, gloss, light, dark, clay, setSpriteScale, TAU, rand, groundShadow, rr, alpha } from './draw.js';
 import { measureViewport } from './viewport.js';
+import { resizeGL, showGL } from './stage.js';
 
 export const app = {
   W: 390, H: 844, scale: 1, pr: 2, t: 0, dt: 1 / 60,
@@ -387,6 +388,7 @@ function layout() {
   cv.width = Math.round(vw * app.pr);
   cv.height = Math.round(vh * app.pr);
   setSpriteScale(app.pr * app.scale);
+  resizeGL(app);
   homeBtn.x = 44;
   homeBtn.y = Math.max(app.safeTop, 10) + 34;
   if (app.scene && app.scene.resize && (prevH !== app.H || prevW !== app.W)) app.scene.resize();
@@ -447,6 +449,14 @@ function frame(now) {
     const s = app.scene;
     if (s) {
       s.update && s.update(dt);
+      // A 3D scene renders on the canvas below; the 2D layer above stays clear
+      // except for what the scene adds on top (buttons, particles, hints)
+      const st = s.stage;
+      showGL(!!(st && st.ok));
+      if (st && st.ok) {
+        c.clearRect(0, 0, app.W, app.H);
+        st.render();
+      }
       s.draw(c);
       if (s.home !== false) homeBtn.draw(c);
     }
@@ -465,7 +475,7 @@ function frame(now) {
 
 export function start(first) {
   const cv = app.canvas = document.getElementById('game');
-  app.c = cv.getContext('2d', { alpha: false, desynchronized: false });
+  app.c = cv.getContext('2d', { alpha: true, desynchronized: false });
   layout();
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', () => setTimeout(layout, 200));

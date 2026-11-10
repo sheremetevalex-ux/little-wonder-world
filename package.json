@@ -9,6 +9,8 @@
     "test": "node tests/monkey.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.65.0"
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.0",
+    "three": "^0.187.0"
   }
 }

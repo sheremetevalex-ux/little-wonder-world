@@ -17,6 +17,13 @@ const STYLES = {
   cake: { bpm: 100, meter: 4, lead: 'marimba', comp: 'marimba', level: 0.32, prog: [['C', 'F', 'G', 'C'], ['Am', 'Dm', 'G', 'C']], arp: [0, null, 3, 2, null, 3, 2, null], density: 0.68, bounce: true },
   adventure: { bpm: 92, meter: 4, lead: 'kalimba', comp: 'marimba', level: 0.3, prog: [['Am', 'F', 'C', 'G'], ['F', 'C', 'G', 'Am']], arp: [0, 2, null, 3, null, 2, 3, null], density: 0.6, bounce: true },
   dream: { bpm: 58, meter: 4, lead: 'bell', comp: null, level: 0.24, prog: [['Fmaj', 'C', 'Am', 'Csus']], arp: null, density: 0.16 },
+  dumplings: { bpm: 96, meter: 4, lead: 'pluck', comp: 'marimba', level: 0.3, prog: [['C', 'Am', 'Dm', 'G'], ['F', 'G', 'C', 'Am']], arp: [0, null, 2, 3, null, 2, null, 3], density: 0.6, bounce: true, drums: { kick: 'x...x...', shaker: '..x...x.', snap: '....x...' } },
+  eggs: { bpm: 68, meter: 3, lead: 'flute', comp: 'harp', level: 0.28, prog: [['Fmaj', 'C', 'Am', 'G'], ['Am', 'F', 'C', 'Csus']], arp: [0, 2, 3, 2, 1, 2], density: 0.4, leadOct: -12 },
+  squishy: { bpm: 74, meter: 4, lead: 'kalimba', comp: 'pluck', level: 0.27, prog: [['F', 'C', 'Am', 'G'], ['Dm', 'G', 'C', 'Am']], arp: [0, null, 2, null, 3, null, 2, 1], density: 0.42, drums: { shaker: 'x.x.x.x.', kick: 'x.......' } },
+  hidden: { bpm: 88, meter: 4, lead: 'glock', comp: 'pluck', level: 0.27, prog: [['C', 'F', 'Am', 'G'], ['Am', 'Em', 'F', 'G']], arp: [0, 2, null, 3, null, 2, 1, null], density: 0.5, leadOct: -12, drums: { kick: 'x.......', snap: '....x...', shaker: '......x.' } },
+  jump: { bpm: 116, meter: 4, lead: 'marimba', comp: 'pluck', level: 0.3, prog: [['C', 'G', 'Am', 'F'], ['F', 'G', 'C', 'C'], ['Am', 'F', 'G', 'C']], arp: [0, 2, 3, 2, 0, 2, 3, 2], density: 0.7, bounce: true, drums: { kick: 'x...x...', shaker: 'x.x.x.x.', snap: '....x...' } },
+  jumpSky: { bpm: 104, meter: 4, lead: 'bell', comp: 'pluck', level: 0.28, prog: [['F', 'C', 'G', 'Am'], ['C', 'Em', 'F', 'G']], arp: [0, 2, 3, 2, 1, 2, 3, 2], density: 0.6, bounce: true, drums: { kick: 'x...x...', shaker: '..x...x.' } },
+  jumpSpace: { bpm: 92, meter: 4, lead: 'glock', comp: 'harp', level: 0.28, prog: [['Am', 'F', 'C', 'G'], ['Fmaj', 'G', 'Em', 'Am']], arp: [0, 2, 3, 4, 3, 2, 1, 2], density: 0.5, leadOct: -12, drums: { kick: 'x.......', shaker: 'x.x.x.x.' } },
   night: { bpm: 56, meter: 3, lead: 'bell', comp: 'harp', level: 0.26, prog: [['C', 'F', 'C', 'G']], arp: [0, null, 2, null, 3, null], density: 0.34 }
 };
 
@@ -107,10 +114,18 @@ class Music {
     }
     if (st.bounce && inBar === st.meter) audio.note('bass', chord[0] + 7, { vol: 0.3, when, bus });
 
+    if (st.drums) {
+      // soft toy percussion, a touch loose so it swings instead of ticking
+      const at = when + (inBar % 2 ? beat * 0.04 : 0);
+      const d = st.drums, hitAt = (pat) => pat && pat[inBar % pat.length] === 'x';
+      if (hitAt(d.kick)) audio.hit('kick', { vol: 0.32, when: at });
+      if (hitAt(d.shaker)) audio.hit('shaker', { vol: 0.09 + Math.random() * 0.03, when: at, pan: 0.25 });
+      if (hitAt(d.snap)) audio.hit('snap', { vol: 0.12, when: at, pan: -0.2 });
+    }
     if (st.comp && st.arp) {
       const a = st.arp[inBar % st.arp.length];
       if (a !== null && a !== undefined) {
-        audio.note(st.comp, chord[a + 1] + 12, { vol: 0.16 + Math.random() * 0.03, when: when + Math.random() * 0.006, bus, pan: (a - 1.5) * 0.18 });
+        audio.note(st.comp, chord[Math.min(a + 1, chord.length - 1)] + 12, { vol: 0.16 + Math.random() * 0.03, when: when + Math.random() * 0.006, bus, pan: (a - 1.5) * 0.18 });
       }
     }
 

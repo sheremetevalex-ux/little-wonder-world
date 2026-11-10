@@ -1,752 +1,767 @@
-// The living meadow: twelve glossy worlds float in the sky above a meadow where
-// every friend hatched so far is at home. Everything responds to a touch.
+// The hub: a living 3D meadow under a big sky. Every world is a glass ball with
+// its own little toy inside, floating in neat rows; below, every friend found so
+// far walks about, hops and chats. The nest holds eggs, the sun changes the time
+// of day, clouds bounce, flowers play notes and gifts float by on balloons.
 import { app, go, hint, wait, tween, Btn, Spring, candy, haptic } from '../core/engine.js';
 import { audio, penta } from '../core/audio.js';
 import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
-import { P, E, ell, rand, pick, dist, sprite, clay, gloss, light, dark, alpha, glow, TAU, groundShadow, clamp, softStar, lerp, heart } from '../core/draw.js';
-import { ICONS } from '../art/icons.js';
-import { worldSprite, drawCloud, drawSun, drawMoon, skyByClock, drawStarPickup } from '../art/world.js';
-import { drawCreature, blinkAt, FRIENDS, FRIEND_IDS } from '../art/creatures.js';
+import { P, E, ell, rand, pick, dist, clamp, lerp, heart, TAU } from '../core/draw.js';
+import { Stage, THREE, M, G, mesh, group, V, skyTexture, blobShadow, starShape, heartShape, canvasTex, lighten } from '../core/stage.js';
+import { skyByClock } from '../art/world.js';
+import { FRIENDS, FRIEND_IDS } from '../art/creatures.js';
+import { Critter } from '../art/critter3d.js';
+import { makeWorldToy, eggShape, eggTex } from '../art/worldtoys.js';
 import { unlockNextItem, drawGiftItem } from './dress.js';
 
-const WORLDS = [
-  { id: 'dress', icon: 'dress', color: '#FFB0CF', note: 0 },
-  { id: 'pet', icon: 'pet', color: '#BFE9FF', note: 1 },
-  { id: 'cake', icon: 'cake', color: '#FFE2B0', note: 2 },
-  { id: 'popit', icon: 'popit', color: '#D9C7FF', note: 3 },
-  { id: 'slime', icon: 'slime', color: '#C2F5D2', note: 4 },
-  { id: 'paint', icon: 'paint', color: '#FFD0DC', note: 5 },
-  { id: 'garden', icon: 'garden', color: '#D7F5FF', note: 6 },
-  { id: 'quest', icon: 'balloon', color: '#FFF0A8', note: 7 },
-  { id: 'sing', icon: 'sing', color: '#FFD0E4', note: 8 },
-  { id: 'cafe', icon: 'cafe', color: '#FFE9C4', note: 9 },
-  { id: 'salon', icon: 'salon', color: '#E7D6FF', note: 10 },
-  { id: 'atelier', icon: 'atelier', color: '#C9F3EC', note: 11 }
+// The five newest first: they glitter until she has visited each one
+export const WORLDS = [
+  { id: 'dumplings', color: '#FFE3C2', note: 0, fresh: 1 },
+  { id: 'eggs', color: '#E3D6FF', note: 1, fresh: 1 },
+  { id: 'squishy', color: '#FFD1E6', note: 2, fresh: 1 },
+  { id: 'hidden', color: '#D3F5D2', note: 3, fresh: 1 },
+  { id: 'jump', color: '#CDEBFF', note: 4, fresh: 1 },
+  { id: 'dress', color: '#FFC9DF', note: 5 },
+  { id: 'pet', color: '#C9EEFF', note: 6 },
+  { id: 'cake', color: '#FFE7BD', note: 7 },
+  { id: 'cafe', color: '#FFEBD0', note: 8 },
+  { id: 'salon', color: '#EBDDFF', note: 9 },
+  { id: 'atelier', color: '#CDF4EE', note: 10 },
+  { id: 'sing', color: '#FFD6E8', note: 11 },
+  { id: 'popit', color: '#E0D2FF', note: 7 },
+  { id: 'slime', color: '#CFF7DC', note: 8 },
+  { id: 'paint', color: '#FFDCE5', note: 9 },
+  { id: 'garden', color: '#DCF6FF', note: 10 },
+  { id: 'quest', color: '#FFF3B8', note: 11 },
+  { id: 'album', color: '#FFE0CC', note: 12 }
 ];
 
-function bubbleSprite(w, r) {
-  const size = r * 2.5;
-  return sprite(`bubble:${w.id}:${r | 0}`, size, size, (c) => {
-    c.translate(size / 2, size / 2);
-    // Soft shadow lifts it off the sky
-    c.save();
-    c.shadowColor = 'rgba(70,40,130,.3)';
-    c.shadowBlur = r * 0.26;
-    c.shadowOffsetY = r * 0.14;
-    c.fillStyle = w.color;
-    ell(c, 0, 0, r * 0.98);
-    c.fill();
-    c.restore();
-    const g = c.createRadialGradient(-r * 0.32, -r * 0.38, r * 0.1, 0, 0, r);
-    g.addColorStop(0, light(w.color, 0.85));
-    g.addColorStop(0.68, light(w.color, 0.3));
-    g.addColorStop(1, dark(w.color, 0.1));
-    c.fillStyle = g;
-    ell(c, 0, 0, r);
-    c.fill();
-    c.save();
-    const k = (r / 54) * 0.92;
-    c.translate(0, r * 0.04);
-    c.scale(k, k);
-    ICONS[w.icon](c, 0);
-    c.restore();
-    // Thick glass: bright rim, crescent highlight, a little bounce light
-    c.lineWidth = r * 0.055;
-    c.strokeStyle = 'rgba(255,255,255,.85)';
-    ell(c, 0, 0, r * 0.97);
-    c.stroke();
-    c.save();
-    c.beginPath();
-    c.arc(0, 0, r * 0.88, Math.PI * 1.05, Math.PI * 1.58);
-    c.lineWidth = r * 0.1;
-    c.lineCap = 'round';
-    c.strokeStyle = 'rgba(255,255,255,.82)';
-    c.stroke();
-    c.beginPath();
-    c.arc(0, 0, r * 0.88, Math.PI * 0.2, Math.PI * 0.42);
-    c.lineWidth = r * 0.05;
-    c.strokeStyle = 'rgba(255,255,255,.5)';
-    c.stroke();
-    c.restore();
-    ell(c, -r * 0.14, -r * 0.8, r * 0.05);
-    c.fillStyle = 'rgba(255,255,255,.9)';
-    c.fill();
-  });
+const SKY = {
+  day: { bg: [[0, '#6EC1FF'], [0.55, '#A8DCFF'], [1, '#FFE8F3']], fog: '#E9F2FF', hemi: 0.6, key: 2.9, keyColor: '#FFF3E4', exposure: 1, grass: '#8FDE7E', hill: ['#7ED37A', '#A6E39A', '#C3EAB4'] },
+  sunset: { bg: [[0, '#7A6BE0'], [0.5, '#FF9FC0'], [1, '#FFD7A6']], fog: '#FFD9C6', hemi: 0.5, key: 2.3, keyColor: '#FFC9A0', exposure: 1, grass: '#9ED98A', hill: ['#8BCB86', '#B6D9A0', '#E8C8B4'] },
+  night: { bg: [[0, '#1B1650'], [0.6, '#3B2F8E'], [1, '#7C5BC4']], fog: '#4B3A99', hemi: 0.42, key: 1.2, keyColor: '#BFC8FF', exposure: 1, grass: '#5E9E86', hill: ['#4F8A7E', '#5F8F9C', '#6E7DB0'] }
+};
+
+function makeResident(hub, id, x, z) {
+  const c = new Critter(id, { size: 1.15 });
+  c.root.position.set(x, 0, z);
+  c.shiny = save.data.shiny.includes(id);
+  if (c.shiny) addCrown(c);
+  return { id, c, tx: x, tz: z, idle: rand(1, 5), walk: 0, greet: 0 };
 }
 
-function drawEgg(c, x, y, s, crack, t, colorA = '#FFF3F8', colorB = P.pink) {
-  c.save();
-  c.translate(x, y);
-  c.scale(s, s);
-  const g = c.createRadialGradient(-12, -20, 3, 0, -4, 46);
-  g.addColorStop(0, '#FFFFFF');
-  g.addColorStop(0.55, colorA);
-  g.addColorStop(1, dark(colorB, 0.04));
-  c.fillStyle = g;
-  c.beginPath();
-  c.moveTo(0, -38);
-  c.bezierCurveTo(23, -38, 31, -6, 31, 8);
-  c.bezierCurveTo(31, 26, 17, 34, 0, 34);
-  c.bezierCurveTo(-17, 34, -31, 26, -31, 8);
-  c.bezierCurveTo(-31, -6, -23, -38, 0, -38);
-  c.fill();
-  c.save();
-  c.clip();
-  // Painted spots and a zigzag sash
-  c.fillStyle = alpha(colorB, 0.7);
-  for (const [px, py, r] of [[-15, -14, 6], [14, -20, 4.6], [-2, -28, 3.4], [19, 2, 3.4], [-21, 8, 3.4]]) {
-    ell(c, px, py, r);
-    c.fill();
+function addCrown(cr) {
+  const g = group(cr.yaw, [0, cr.ry * 2 + 0.05, 0]);
+  const gold = M.metal('#FFC93C', { roughness: 0.2 });
+  mesh(G.cyl(24, 1.05), gold, { s: [0.3, 0.14, 0.3], parent: g, cast: false });
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * TAU;
+    mesh(G.cone(8), gold, { p: [Math.sin(a) * 0.28, 0.14, Math.cos(a) * 0.28], s: [0.07, 0.16, 0.07], parent: g, cast: false });
+    mesh(G.sphere(8), M.glossy(['#FF5C8F', '#6FC4FF', '#7FE3A0'][i % 3]), { p: [Math.sin(a) * 0.3, 0.0, Math.cos(a) * 0.3], s: 0.04, parent: g, cast: false });
   }
-  c.fillStyle = P.butter;
-  c.beginPath();
-  c.moveTo(-34, 10);
-  for (let i = 0; i <= 8; i++) c.lineTo(-34 + i * 8.5, 10 + (i % 2 ? -6 : 3));
-  for (let i = 8; i >= 0; i--) c.lineTo(-34 + i * 8.5, 20 + (i % 2 ? -6 : 3));
-  c.closePath();
-  c.fill();
-  c.restore();
-  gloss(c, -11, -18, 10, 14, 0.8, 0.25);
-  if (crack > 0) {
-    c.strokeStyle = '#7B5BB0';
-    c.lineWidth = 2.4;
-    c.lineJoin = 'round';
-    c.lineCap = 'round';
-    const lines = [
-      [[-8, -24], [-2, -14], [-9, -6], [-1, 0]],
-      [[14, -18], [8, -9], [16, -2], [8, 6]],
-      [[-25, 2], [-15, 6], [-19, 15], [-7, 18], [4, 12], [12, 20], [24, 12]]
-    ];
-    for (let i = 0; i < Math.min(crack, 3); i++) {
-      c.beginPath();
-      lines[i].forEach((p, k) => c[k ? 'lineTo' : 'moveTo'](p[0], p[1]));
-      c.stroke();
-    }
-  }
-  c.restore();
-}
-
-function makeResident(id, x, y) {
-  return {
-    id, x, y, tx: x, ty: y, face: 1, walk: 0, hop: 0, hopV: 0, sq: new Spring(1, 300, 13),
-    idle: rand(1, 5), emote: null, emoteT: 0, seed: rand(100), wave: 0
-  };
+  g.rotation.x = -0.15;
 }
 
 export const hub = {
-  tint: '#9EC7FF',
+  tint: '#8FCBFF',
   home: false,
 
   enter(args) {
     save.dailyGift();
+    save.data.seen = save.data.seen || {};
     this.mode = this.mode || skyByClock();
     this.t = 0;
-    this.press = new Map();
-    this.look = { x: 0, y: 0 };
-    this.bubbles = WORLDS.map((w, i) => ({ ...w, sq: new Spring(1, 340, 11), phase: i * 1.7, enter: 0, wiggle: 0 }));
+    this.W = app.W; this.H = app.H;
+    const st = this.stage = new Stage({ fov: 36, shadowSize: 1024, shadowArea: 12, rim: 1.2 });
+    this.cam = st.camera;
+    this.world = group(st.scene);
+    this.buildScenery();
+    this.bubbles = WORLDS.map((w, i) => this.makeBubble(w, i));
+    this.residents = [];
     this.layout();
-    this.clouds = [0, 1, 2, 3].map((i) => ({ x: rand(this.W), y: rand(40, this.horizon * 0.72), s: rand(0.55, 1.05), v: rand(3, 8), p: new Spring(1, 260, 9) }));
-    this.flies = [0, 1, 2].map((i) => ({ x: rand(this.W), y: rand(this.horizon - 80, this.horizon + 50), a: rand(TAU), col: pick([P.pink, P.butter, P.lilac, P.sky]), f: rand(TAU) }));
+    this.fillResidents();
+    this.buildNest();
+    this.applySky(true);
     this.small = [];
-    this.smallT = 0;
-    this.sunSq = new Spring(1, 300, 10);
-    this.sunLaugh = 0;
+    this.smallT = 1;
     this.gift = null;
     this.giftT = rand(14, 26);
     this.nudgeT = 3;
-    this.flowers = this.makeFlowers();
-    this.residents = [];
-    this.fillResidents();
-    this.egg = { taps: 0, sq: new Spring(1, 420, 10), wob: 0, t: 0 };
     this.hatch = null;
+    this.flyStars = [];
+    this.press = null;
     this.bubbles.forEach((b, i) => {
       b.enter = 0;
-      tween(b, { enter: 1 }, 0.55, { ease: E.back, delay: 0.06 + i * 0.045 });
+      tween(b, { enter: 1 }, 0.6, { ease: E.back, delay: 0.08 + i * 0.035 });
     });
-    this.buttons = [
-      new Btn({
-        x: this.W - 34, y: Math.max(app.safeTop, 8) + 30, r: 22, slop: 8,
-        paint: (c, r) => {
-          candy(c, r, save.data.music ? P.teal : '#A9A6C4');
-          c.fillStyle = '#fff';
-          c.strokeStyle = '#fff';
-          c.lineWidth = 2.6;
-          c.lineCap = 'round';
-          c.beginPath(); c.moveTo(4, 8); c.lineTo(4, -10); c.lineTo(11, -6); c.stroke();
-          ell(c, -1, 9, 5.4, 4.4, -0.3);
-          c.fill();
-          if (!save.data.music) {
-            c.strokeStyle = P.rose;
-            c.lineWidth = 3.5;
-            c.beginPath(); c.moveTo(-12, -11); c.lineTo(13, 12); c.stroke();
-          }
-        },
-        tap: () => {
-          save.data.music = !save.data.music;
-          music.setEnabled(save.data.music);
-          save.touch();
-          if (save.data.music) audio.sparkle(0, 3);
-        }
-      }),
-      new Btn({
-        x: 34, y: Math.max(app.safeTop, 8) + 30, r: 22, slop: 8,
-        paint: (c, r) => {
-          candy(c, r, P.coral);
-          // Little book
-          c.fillStyle = '#fff';
-          c.beginPath();
-          c.moveTo(-12, -9); c.quadraticCurveTo(-5, -12, 0, -8); c.quadraticCurveTo(5, -12, 12, -9);
-          c.lineTo(12, 9); c.quadraticCurveTo(5, 6, 0, 10); c.quadraticCurveTo(-5, 6, -12, 9);
-          c.closePath();
-          c.fill();
-          c.strokeStyle = P.coral;
-          c.lineWidth = 1.6;
-          c.beginPath(); c.moveTo(0, -7); c.lineTo(0, 9); c.stroke();
-          heart(c, 6, -2, 3.2);
-          c.fillStyle = P.rose;
-          c.fill();
-        },
-        tap: (p) => go('album', null, { x: p.x, y: p.y })
-      })
-    ];
+    this.buttons = [this.musicButton(), this.skyButton()];
+    this.placeButtons();
     music.play(this.mode === 'night' ? 'night' : 'hub');
     music.setEnabled(save.data.music);
-    if (args && args.intro) {
-      wait(0.35, () => audio.success());
-    }
+    if (args && args.intro) wait(0.35, () => audio.success());
     this.updateHint();
-    // A star earned in a game flies back to the nest: effort becomes visible
     if (save.data.pendingStars) {
       const n = save.data.pendingStars;
       save.data.pendingStars = 0;
       save.touch();
-      this.flyStars = [];
-      for (let i = 0; i < n; i++) wait(0.7 + i * 0.3, () => this.launchStar());
+      for (let i = 0; i < n; i++) wait(0.8 + i * 0.35, () => this.launchStar());
     }
   },
 
-  launchStar() {
-    audio.sparkle(i3(), 3);
-    const nx = this.nest.x, ny = this.nest.y - 50;
-    const s = { x: this.W / 2, y: this.H * 0.45, r: 0, rot: 0 };
-    tween(s, { r: 16 }, 0.3, { ease: E.back });
-    tween(s, { x: nx, y: ny, rot: 6 }, 0.9, {
-      ease: E.io, delay: 0.3, done: () => {
-        this.flyStars = this.flyStars.filter((q) => q !== s);
-        fx.stars(nx, ny, 12);
-        this.egg.sq.kick(4);
-        audio.note('bell', 84, { vol: 0.5 });
+  exit() {
+    for (const r of this.residents) r.c.dispose();
+    this.stage.dispose();
+  },
+
+  placeButtons() {
+    const y = this.H - Math.max(app.safeBottom, 6) - 34;
+    this.buttons[0].x = 36; this.buttons[0].y = y;
+    this.buttons[1].x = 92; this.buttons[1].y = y;
+  },
+
+  skyButton() {
+    return new Btn({
+      r: 23, slop: 8,
+      paint: (c, r) => {
+        const night = this.mode === 'night';
+        candy(c, r, night ? '#6B5BD6' : this.mode === 'sunset' ? '#FF9F7A' : '#FFC233');
+        c.fillStyle = '#FFF6D0';
+        if (night) {
+          c.beginPath(); c.arc(0, 0, 11, 0, TAU); c.fill();
+          c.fillStyle = '#6B5BD6';
+          c.beginPath(); c.arc(5, -4, 10, 0, TAU); c.fill();
+        } else {
+          c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.fill();
+          c.lineWidth = 3; c.lineCap = 'round'; c.strokeStyle = '#FFF6D0';
+          for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + this.t * 0.5; c.beginPath(); c.moveTo(Math.cos(a) * 11, Math.sin(a) * 11); c.lineTo(Math.cos(a) * 15, Math.sin(a) * 15); c.stroke(); }
+        }
+      },
+      tap: () => this.nextSky()
+    });
+  },
+
+  nextSky() {
+    this.sunSq.kick(5);
+    audio.sparkle(2, 5);
+    const order = ['day', 'sunset', 'night'];
+    this.mode = order[(order.indexOf(this.mode) + 1) % 3];
+    this.applySky();
+    music.play(this.mode === 'night' ? 'night' : 'hub');
+    fx.sparkle(this.buttons[1].x, this.buttons[1].y, 14);
+  },
+
+  musicButton() {
+    return new Btn({
+      r: 23, slop: 8,
+      paint: (c, r) => {
+        candy(c, r, save.data.music ? P.teal : '#A9A6C4');
+        c.fillStyle = '#fff';
+        c.strokeStyle = '#fff';
+        c.lineWidth = 2.6;
+        c.lineCap = 'round';
+        c.beginPath(); c.moveTo(4, 8); c.lineTo(4, -10); c.lineTo(11, -6); c.stroke();
+        ell(c, -1, 9, 5.4, 4.4, -0.3);
+        c.fill();
+        if (!save.data.music) {
+          c.strokeStyle = P.rose;
+          c.lineWidth = 3.5;
+          c.beginPath(); c.moveTo(-12, -11); c.lineTo(13, 12); c.stroke();
+        }
+      },
+      tap: () => {
+        save.data.music = !save.data.music;
+        music.setEnabled(save.data.music);
+        save.touch();
+        if (save.data.music) audio.sparkle(0, 3);
       }
     });
-    this.flyStars = this.flyStars || [];
-    this.flyStars.push(s);
+  },
+
+  // ---- scenery --------------------------------------------------------------------
+  buildScenery() {
+    const W = this.world;
+    // ground: a soft rolling meadow
+    const gg = new THREE.PlaneGeometry(260, 200, 80, 60);
+    gg.rotateX(-Math.PI / 2);
+    const pos = gg.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      const far = Math.max(0, -z - 12) / 60;
+      pos.setY(i, (Math.sin(x * 0.12) * 0.5 + Math.sin(z * 0.17 + x * 0.05) * 0.4) * far * 2.2);
+    }
+    gg.computeVertexNormals();
+    this.groundMat = new THREE.MeshStandardMaterial({ color: '#8FDE7E', roughness: 0.95, envMapIntensity: 0.4 });
+    this.ground = mesh(gg, this.groundMat, { p: [0, 0, -60], receive: true, cast: false, parent: W });
+    // far hills fading into the haze
+    this.hills = [];
+    const hillDefs = [[-48, -95, 34, 0], [5, -110, 42, 1], [55, -92, 30, 0], [-22, -130, 48, 2], [36, -140, 52, 2], [-70, -120, 40, 1], [80, -125, 44, 1]];
+    for (const [x, z, r, k] of hillDefs) {
+      const m = new THREE.MeshStandardMaterial({ color: '#A6E39A', roughness: 1, envMapIntensity: 0.3 });
+      const h = mesh(G.sphere(40), m, { p: [x, -r * 0.62, z], s: [r * 1.4, r, r], cast: false, parent: W });
+      h.userData.k = k;
+      this.hills.push(h);
+    }
+    // lollipop trees on the sides
+    this.trees = [];
+    const trunk = M.toy('#B9825A', { roughness: 0.8 });
+    const treeCols = ['#6CCB76', '#86D96E', '#FF9FC6', '#FFC86B', '#7FD8B0'];
+    for (let i = 0; i < 16; i++) {
+      const side = i % 2 ? 1 : -1;
+      const z = -18 - i * 3.6 - rand(0, 4);
+      const x = side * (10 + rand(0, 12) + (-z) * 0.32);
+      const t = group(W, [x, 0, z]);
+      const s = rand(1.6, 2.6);
+      mesh(G.cyl(10), trunk, { p: [0, s * 0.6, 0], s: [0.22 * s, s * 1.2, 0.22 * s], parent: t });
+      const col = pick(treeCols);
+      mesh(G.sphere(24), M.toy(col, { roughness: 0.55 }), { p: [0, s * 1.55, 0], s: s * 0.95, parent: t });
+      mesh(G.sphere(16), M.toy(lighten(col, 0.15), { roughness: 0.55 }), { p: [s * 0.55, s * 1.25, s * 0.2], s: s * 0.55, parent: t, cast: false });
+      t.userData.ph = rand(TAU);
+      t.userData.sq = new Spring(1, 200, 6);
+      this.trees.push(t);
+    }
+    // scattered little flowers (instanced)
+    const fl = new THREE.InstancedMesh(G.sphere(8), new THREE.MeshStandardMaterial({ roughness: 0.6 }), 160);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), cc = new THREE.Color();
+    const fcols = ['#FF82AF', '#FFD45C', '#FFFFFF', '#B48BFF', '#6FD8FF', '#FF9F7A'];
+    for (let i = 0; i < 160; i++) {
+      p.set(rand(-30, 30), 0.06, rand(-46, -17));
+      sc.setScalar(rand(0.1, 0.18));
+      m4.compose(p, q, sc);
+      fl.setMatrixAt(i, m4);
+      fl.setColorAt(i, cc.set(pick(fcols)));
+    }
+    fl.castShadow = false;
+    W.add(fl);
+    // clouds made of plush puffs
+    this.clouds = [];
+    for (let i = 0; i < 6; i++) {
+      const cl = group(W, [rand(-60, 60), rand(16, 34), -70 - rand(0, 30)]);
+      const cm = M.plush('#FFFFFF', { sheenColor: new THREE.Color('#E8F1FF') });
+      const n = 5;
+      for (let k = 0; k < n; k++) mesh(G.sphere(20), cm, { p: [(k - 2) * 2.4 + rand(-0.5, 0.5), Math.sin((k / (n - 1)) * Math.PI) * 1.6, rand(-0.5, 0.5)], s: 2.2 + Math.sin((k / (n - 1)) * Math.PI) * 1.4, parent: cl, cast: false });
+      cl.userData = { v: rand(0.6, 1.4), sq: new Spring(1, 180, 6) };
+      cl.scale.setScalar(rand(0.8, 1.3));
+      this.clouds.push(cl);
+    }
+    // sun with a sleepy smile
+    this.sun = group(W, [-30, 10, -150]);
+    this.sunBall = mesh(G.sphere(32), new THREE.MeshBasicMaterial({ color: '#FFE070' }), { s: 9, parent: this.sun, cast: false });
+    this.sunGlow = mesh(G.sphere(24), M.glow('#FFD24D', { opacity: 0.25 }), { s: 15, parent: this.sun, cast: false });
+    for (const k of [-1, 1]) mesh(G.sphere(12), M.basic('#C2742E'), { p: [k * 3, 1.2, 8.6], s: [0.75, 0.95, 0.4], parent: this.sun, cast: false });
+    mesh(G.torus(0.25, Math.PI, 16), M.basic('#C2742E'), { p: [0, -1.6, 8.7], r: [0, 0, Math.PI], s: 2, parent: this.sun, cast: false });
+    for (const k of [-1, 1]) mesh(G.sphere(12), M.basic('#FF9F7A'), { p: [k * 5, -1, 7.6], s: [1.3, 0.8, 0.3], parent: this.sun, cast: false });
+    this.sunSq = new Spring(1, 200, 7);
+    // moon and stars for the night
+    this.moon = group(W, [32, 26, -150]);
+    mesh(G.sphere(32), new THREE.MeshBasicMaterial({ color: '#FFF4C8' }), { s: 6, parent: this.moon, cast: false });
+    mesh(G.sphere(24), M.glow('#FFF0B0', { opacity: 0.2 }), { s: 11, parent: this.moon, cast: false });
+    const sg = new THREE.BufferGeometry();
+    const sp = new Float32Array(600);
+    for (let i = 0; i < 200; i++) { sp[i * 3] = rand(-160, 160); sp[i * 3 + 1] = rand(10, 90); sp[i * 3 + 2] = -160 - rand(0, 20); }
+    sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    this.starsPts = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#FFF6C8', size: 1.4, sizeAttenuation: true, transparent: true, opacity: 0.9, fog: false }));
+    W.add(this.starsPts);
+    // fireflies / butterflies
+    this.flies = [];
+    for (let i = 0; i < 6; i++) {
+      const f = mesh(G.sphere(10), M.glow(pick(['#FFF2A8', '#FFC4E8', '#BDF0FF']), { opacity: 0.9 }), { s: 0.12, parent: W, cast: false });
+      f.userData = { a: rand(TAU), base: V(rand(-8, 8), rand(0.6, 2.2), rand(-24, -12)), ph: rand(TAU) };
+      this.flies.push(f);
+    }
+  },
+
+  applySky(first) {
+    const s = SKY[this.mode], st = this.stage;
+    st.scene.background = skyTexture(s.bg);
+    st.scene.fog = new THREE.Fog(s.fog, 60, 230);
+    st.hemi.intensity = s.hemi;
+    st.key.intensity = s.key;
+    st.key.color.set(s.keyColor);
+    this.groundMat.color.set(s.grass);
+    for (const h of this.hills) h.material.color.set(s.hill[h.userData.k]);
+    const night = this.mode === 'night';
+    this.moon.visible = night;
+    this.starsPts.visible = night;
+    this.sun.visible = !night;
+    this.sun.position.y = this.mode === 'sunset' ? -2 : 10;
+    this.sunBall.material.color.set(this.mode === 'sunset' ? '#FFB066' : '#FFE070');
+    for (const f of this.flies) f.material.opacity = night ? 1 : 0.0;
+    for (const r of this.residents || []) r.c.sleep = night && Math.random() < 0.6;
+    if (!first) for (const b of this.bubbles) b.sq.kick(3);
+  },
+
+  // ---- world bubbles -------------------------------------------------------------
+  makeBubble(w, i) {
+    const g = group(this.world);
+    const inner = group(g);
+    // a pastel medallion behind the toy so each ball reads as a button
+    const disc = mesh(G.sphere(36), M.toy(w.color, { roughness: 0.35, clearcoat: 0.8 }), { s: [0.86, 0.86, 0.2], p: [0, 0, -0.35], parent: inner, cast: false });
+    mesh(G.torus(0.07, TAU, 48), M.glossy('#FFFFFF', { roughness: 0.15 }), { s: 0.86, p: [0, 0, -0.32], parent: inner, cast: false });
+    let toy;
+    let crit = null;
+    if (w.id === 'pet') {
+      crit = new Critter('bunny', { size: 0.42, shadow: false });
+      crit.root.position.set(0, -0.42, 0.05);
+      toy = group(inner);
+      toy.add(crit.root);
+    } else {
+      toy = makeWorldToy(w.id);
+      toy.scale.setScalar(0.6);
+      toy.position.z = 0.1;
+      inner.add(toy);
+    }
+    toy.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    const glass = mesh(G.sphere(40), M.bubble(), { s: 1, parent: g, cast: false });
+    glass.renderOrder = 2;
+    // a sparkle that orbits the worlds she has not visited yet
+    let spark = null;
+    if (w.fresh && !save.data.seen['w:' + w.id]) {
+      spark = mesh(G.puffy('star4', starShape(4, 1, 0.36), 0.2, 0.1), M.glow('#FFF4A0', { opacity: 1 }), { s: 0.14, parent: g, cast: false });
+    }
+    return { ...w, g, inner, toy, crit, glass, disc, spark, sq: new Spring(1, 340, 11), spin: new Spring(0, 60, 5), phase: i * 1.7, enter: 0, x: 0, y: 0, r: 40, wr: 1 };
+  },
+
+  layout() {
+    const W = this.W = app.W, H = this.H = app.H;
+    const st = this.stage, cam = this.cam;
+    const wide = W > H;
+    // horizon low enough that the sky can hold every world, high enough for the meadow
+    this.horizon = H * (wide ? 0.7 : 0.75);
+    cam.fov = 36;
+    cam.aspect = W / H;
+    const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    const pitch = Math.atan((this.horizon / H - 0.5) * 2 * tanH);
+    cam.position.set(0, 3, 0);
+    cam.rotation.set(pitch, 0, 0);
+    cam.updateProjectionMatrix();
+    cam.updateMatrixWorld();
+
+    const cols = wide ? 6 : W >= 600 ? 4 : 3;
+    const rows = Math.ceil(this.bubbles.length / cols);
+    const topY = Math.max(app.safeTop, 8) + (wide ? 14 : 22);
+    const areaH = this.horizon - topY + (wide ? 8 : 4);
+    const r = this.r = Math.min((W - 24) / (cols * 2.22), areaH / (rows * (wide ? 2.14 : 2.04)), 76);
+    const stepY = Math.min((areaH - r * 2) / Math.max(1, rows - 1), r * 2.35);
+    const y0 = topY + r + Math.max(0, (areaH - r * 2 - stepY * (rows - 1)) * 0.4);
+    const spanX = Math.min(r * 2.62, (W - 2 * r - 20) / (cols - 1));
+    const plane = V(0, 0, -16);
+    this.bubbles.forEach((b, i) => {
+      const row = Math.floor(i / cols), ci = i % cols;
+      const count = Math.min(cols, this.bubbles.length - row * cols);
+      b.x = W / 2 - ((count - 1) * spanX) / 2 + ci * spanX;
+      b.y = y0 + row * stepY;
+      const p = st.onFacing(b.x, b.y, plane);
+      b.home = p.clone();
+      b.wr = r * st.unitsPerPx(p);
+      b.g.position.copy(p);
+      b.g.quaternion.copy(cam.quaternion);
+    });
+    // the meadow: walkable band in front of the camera
+    const near = st.onPlane(W / 2, H - (H - this.horizon) * 0.42, 0), far = st.onPlane(W / 2, this.horizon + (H - this.horizon) * 0.2, 0);
+    this.meadow = { z0: far ? far.z : -22, z1: near ? near.z : -11 };
+    const zMid = (this.meadow.z0 + this.meadow.z1) / 2;
+    const edge = st.onPlane(16, H - 60, 0);
+    this.meadow.x = edge ? Math.abs(edge.x) * 0.82 : 6;
+    st.shadowArea(Math.max(12, this.meadow.x * 1.4), V(0, 0, zMid));
+    // big front flowers that play like a harp
+    if (this.harp) this.harp.forEach((f) => this.world.remove(f.g));
+    const nH = Math.max(4, Math.floor((W - 140) / 82));
+    this.harp = [];
+    const hcols = ['#FF82AF', '#FFB54D', '#6FD8FF', '#B48BFF', '#FF8F7A', '#7FE3A0', '#FFD45C'];
+    for (let i = 0; i < nH; i++) {
+      const sx = 130 + ((W - 145) * (i + 0.5)) / nH;
+      const pt = st.onPlane(sx, H - 6 - app.safeBottom * 0.4, 0) || V(0, 0, -10);
+      const g = group(this.world, [pt.x, 0, pt.z]);
+      const s = st.unitsPerPx(pt) * 34;
+      g.scale.setScalar(s);
+      const col = hcols[i % hcols.length];
+      mesh(G.cyl(8), M.toy('#5FBF72'), { p: [0, 0.6, 0], s: [0.06, 1.2, 0.06], parent: g, cast: false });
+      mesh(G.sphere(12), M.toy('#7FD86F'), { p: [0.18, 0.45, 0], r: [0, 0, -0.8], s: [0.24, 0.08, 0.12], parent: g, cast: false });
+      const head = group(g, [0, 1.25, 0]);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        mesh(G.sphere(14), M.toy(col), { p: [Math.cos(a) * 0.26, Math.sin(a) * 0.26, 0], s: [0.2, 0.2, 0.1], parent: head, cast: false });
+      }
+      mesh(G.sphere(16), M.toy('#FFF2A8'), { p: [0, 0, 0.05], s: [0.17, 0.17, 0.1], parent: head, cast: false });
+      this.harp.push({ g, head, x: sx, y: H - 6 - 30, note: i, sq: new Spring(1, 300, 8), lean: new Spring(0, 160, 6), glow: 0 });
+    }
+    if (this.nest) this.placeNest();
+    if (this.buttons && this.buttons.length) this.placeButtons();
+  },
+
+  resize() {
+    this.layout();
+    for (const r of this.residents) {
+      r.tx = clamp(r.tx, -this.meadow.x, this.meadow.x * 0.6);
+      r.tz = clamp(r.tz, this.meadow.z0, this.meadow.z1);
+      r.c.root.position.x = r.tx;
+      r.c.root.position.z = r.tz;
+    }
+  },
+
+  meadowCap() { return this.W > 900 ? 9 : this.W > 640 ? 8 : 5; },
+  randSpot() { return [rand(-this.meadow.x, this.meadow.x * 0.55), rand(this.meadow.z0, this.meadow.z1)]; },
+
+  fillResidents() {
+    const chosen = meadowList(this.meadowCap());
+    chosen.forEach((id, i) => {
+      const u = chosen.length > 1 ? i / (chosen.length - 1) : 0.5;
+      const x = lerp(-this.meadow.x, this.meadow.x * 0.55, u);
+      const z = lerp(this.meadow.z0, this.meadow.z1, (i * 0.37) % 1);
+      this.addResident(id, x, z);
+    });
+  },
+  addResident(id, x, z) {
+    const r = makeResident(this, id, x, z);
+    this.world.add(r.c.root);
+    r.c.sleep = this.mode === 'night' && Math.random() < 0.6;
+    this.residents.push(r);
+    return r;
+  },
+
+  buildNest() {
+    const n = this.nest = { g: group(this.world), egg: null, sq: new Spring(1, 420, 10), taps: 0, wob: 0 };
+    const straw = M.toy('#E3B26C', { roughness: 0.85 });
+    for (let i = 0; i < 3; i++) mesh(G.torus(0.32, TAU, 32), straw, { p: [0, 0.18 + i * 0.12, 0], r: [Math.PI / 2, 0, i], s: [0.95 - i * 0.05, 0.95 - i * 0.05, 0.8], parent: n.g });
+    n.eggG = group(n.g, [0, 0.35, 0]);
+    const tex = eggTex('#FFF3F8', '#FF9FC6', '#FFD7EA', 3);
+    n.egg = mesh(eggShape(), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 }), { p: [0, 0.75, 0], s: 0.72, parent: n.eggG });
+    // star slots: three stars make an egg
+    n.stars = [];
+    for (let i = 0; i < 3; i++) {
+      const s = mesh(G.puffy('star', starShape(5, 1, 0.5), 0.3, 0.15), M.glossy('#FFC233'), { s: 0.24, parent: n.g, cast: false });
+      n.stars.push(s);
+    }
+    // a second egg waiting its turn
+    n.count = mesh(eggShape(), n.egg.material, { s: 0.42, p: [0.95, 0.42, 0.25], r: [0, 0, -0.5], parent: n.g, cast: false });
+    const sh = blobShadow(1.2, 0.35);
+    sh.position.y = 0.02;
+    n.g.add(sh);
+    this.placeNest();
+  },
+  placeNest() {
+    const st = this.stage, n = this.nest;
+    const sx = this.W - Math.min(92, this.W * 0.2), sy = this.horizon + (this.H - this.horizon) * 0.55;
+    const p = st.onPlane(sx, sy, 0) || V(5, 0, -14);
+    n.g.position.copy(p);
+    n.g.scale.setScalar(st.unitsPerPx(p) * 46);
+    n.x = sx; n.y = sy;
   },
 
   updateHint() {
     if (save.data.eggs > 0 && !this.hatch && save.data.friends.length < 3) {
-      hint.set({ from: [this.nest.x, this.nest.y - 22], delay: 1.8 });
+      const s = this.stage.objScreen(this.nest.egg);
+      hint.set({ from: [s.x, s.y], delay: 1.8 });
     } else if (!save.data.seen.hub) {
       const b = this.bubbles[0];
       hint.set({ from: [b.x, b.y], delay: 6 });
     } else hint.clear();
   },
 
-  layout() {
-    const W = this.W = app.W, H = this.H = app.H;
-    const wide = W > 640;
-    this.horizon = wide ? H * 0.7 : H * 0.655;
-    // Four to a row whenever there is room for them; three on a narrow phone
-    const rows = W >= 440 ? [4, 4, 4] : [3, 3, 3, 3];
-    const topY = Math.max(app.safeTop, 8) + (wide ? 16 : 58);
-    const areaH = this.horizon - topY - 6;
-    const maxRow = rows[0];
-    const r = this.r = Math.min((W - 22) / (maxRow * 2.16), areaH / (rows.length * 2.14), 84);
-    const stepY = Math.min((areaH - r * 2) / (rows.length - 1), r * 2.3);
-    const totalH = stepY * (rows.length - 1);
-    const y0 = topY + r + Math.max(0, (areaH - r * 2 - totalH) * 0.42);
-    let idx = 0;
-    const spanX = Math.min(wide ? r * 2.7 : r * 2.36, (W - 2 * r - 14) / (maxRow - 1));
-    rows.forEach((count, ri) => {
-      const rowW = (count - 1) * spanX;
-      for (let i = 0; i < count; i++) {
-        const b = this.bubbles[idx++];
-        b.x = W / 2 - rowW / 2 + i * spanX;
-        b.y = y0 + ri * stepY;
+  launchStar() {
+    audio.sparkle(2, 3);
+    const s = mesh(G.puffy('star', starShape(5, 1, 0.5), 0.3, 0.15), M.glossy('#FFC233', { emissive: '#FFA000', emissiveIntensity: 0.4 }), { s: 0.01, parent: this.world, cast: false });
+    const from = this.stage.onFacing(this.W / 2, this.H * 0.45, V(0, 0, -10));
+    const to = this.nest.g.position.clone().add(V(0, 1.4 * this.nest.g.scale.x, 0));
+    s.position.copy(from);
+    const o = { k: 0, u: 0 };
+    tween(o, { k: 1 }, 0.3, { ease: E.back });
+    tween(o, { u: 1 }, 0.95, {
+      ease: E.io, delay: 0.3, done: () => {
+        this.world.remove(s);
+        const sc = this.stage.toScreen(to);
+        fx.stars(sc.x, sc.y, 12);
+        this.nest.sq.kick(4);
+        audio.note('bell', 84, { vol: 0.5 });
       }
     });
-    this.nest = { x: W - Math.min(82, W * 0.21), y: Math.min(H - 100, this.horizon + (H - this.horizon) * 0.54) };
-    // The bubbles fill the sky, so the sun peeks out on the horizon
-    this.sun = { x: W * 0.5, y: this.horizon + (wide ? -8 : 12), r: wide ? 30 : 24 };
+    this.flyStars.push({ s, o, from, to });
   },
 
-  resize() {
-    this.layout();
-    this.flowers = this.makeFlowers();
-    this.residents.forEach((r) => { r.x = clamp(r.x, 30, this.W - 30); r.tx = r.x; r.y = this.meadowY(rand(0.2, 0.8)); r.ty = r.y; });
-    this.buttons[0].x = this.W - 34;
-  },
-
-  meadowY(u) { return lerp(this.horizon + 48, this.H - 120, u); },
-
-  fillResidents() {
-    // Show the newest few, with the mascot always home
-    const chosen = meadowList(this.meadowCap());
-    chosen.forEach((id, i) => {
-      const x = (this.W - 150) * (0.08 + (i + 0.3) / Math.max(chosen.length, 1) * 0.86);
-      this.residents.push(makeResident(id, x, this.meadowY(rand(0.2, 0.75))));
-    });
-  },
-
-  meadowCap() { return this.W > 900 ? 10 : this.W > 640 ? 8 : 5; },
-
-  makeFlowers() {
-    const n = Math.max(5, Math.floor(this.W / 74));
-    const cols = ['#FF82AF', '#FFB54D', '#6FD8FF', '#B48BFF', '#FF8F7A', '#7FE3A0', '#FFD45C', '#FF82AF', '#6FD8FF', '#B48BFF', '#FF8F7A', '#FFB54D', '#7FE3A0'];
-    return Array.from({ length: n }, (_, i) => ({
-      x: (this.W * (i + 0.5)) / n, y: this.H - 8 - rand(0, 10) - app.safeBottom * 0.5, col: cols[i % cols.length], note: i, sq: new Spring(1, 300, 8), lean: new Spring(0, 160, 6), s: rand(0.95, 1.15), glow: 0
-    }));
-  },
-
+  // ---- per frame ----------------------------------------------------------------------
   update(dt) {
     this.t += dt;
-    const W = this.W, H = this.H;
-    for (const b of this.bubbles) b.sq.step(dt);
+    const t = this.t, st = this.stage;
+    // bubbles bob, breathe, spin their toys
+    for (const b of this.bubbles) {
+      const k = b.sq.step(dt) * Math.max(0.001, b.enter);
+      b.spin.step(dt);
+      b.g.position.copy(b.home);
+      b.g.position.y += Math.sin(t * 1.3 + b.phase) * b.wr * 0.05;
+      const sx = k * (1 + (1 - b.sq.x) * 0.25);
+      b.g.scale.set(b.wr * sx, b.wr * k, b.wr * k);
+      b.toy.rotation.y = Math.sin(t * 0.7 + b.phase) * 0.45 + b.spin.x;
+      b.toy.position.y = Math.sin(t * 2 + b.phase) * 0.03 + (b.crit ? 0 : 0);
+      if (b.crit) b.crit.update(dt);
+      if (b.spark) {
+        const a = t * 1.8 + b.phase;
+        b.spark.position.set(Math.cos(a) * 1.05, Math.sin(a) * 1.05, 0.3);
+        b.spark.rotation.z = t * 2;
+        b.spark.scale.setScalar(0.12 + Math.sin(t * 6 + b.phase) * 0.03);
+      }
+    }
+    // clouds drift and wobble
     for (const cl of this.clouds) {
-      cl.x += cl.v * dt;
-      cl.p.step(dt);
-      if (cl.x > W + 110) cl.x = -110;
+      cl.position.x += cl.userData.v * dt;
+      if (cl.position.x > 90) cl.position.x = -90;
+      const s = cl.userData.sq.step(dt);
+      cl.scale.y = cl.scale.x * s;
     }
-    this.sunSq.step(dt);
-    this.sunLaugh = Math.max(0, this.sunLaugh - dt);
-    for (const f of this.flowers) {
-      f.sq.step(dt);
-      f.lean.step(dt);
-      f.glow = Math.max(0, f.glow - dt * 1.4);
+    for (const tr of this.trees) {
+      const s = tr.userData.sq.step(dt);
+      tr.scale.set(1 / Math.sqrt(s), s, 1 / Math.sqrt(s));
+      tr.rotation.z = Math.sin(t * 0.8 + tr.userData.ph) * 0.02;
     }
-    this.egg.sq.step(dt);
-    this.egg.wob += dt;
+    const sq = this.sunSq.step(dt);
+    this.sun.scale.setScalar(sq);
+    this.sunGlow.scale.setScalar(15 + Math.sin(t * 1.5) * 0.8);
+    this.sun.rotation.z = Math.sin(t * 0.5) * 0.05;
+    for (const f of this.flies) {
+      const u = f.userData;
+      u.ph += dt;
+      f.position.set(u.base.x + Math.sin(u.ph * 0.7) * 3, u.base.y + Math.sin(u.ph * 1.9) * 0.5, u.base.z + Math.cos(u.ph * 0.5) * 2);
+    }
+    for (const h of this.harp) {
+      const s = h.sq.step(dt);
+      h.head.scale.setScalar(s);
+      h.g.rotation.z = h.lean.step(dt) * 0.12 + Math.sin(t * 1.4 + h.note) * 0.03;
+      h.head.rotation.z = t * 0.3 + h.note;
+    }
+    // nest, egg and star slots
+    const n = this.nest;
+    const ns = n.sq.step(dt);
+    n.wob += dt;
+    n.eggG.visible = save.data.eggs > 0 && !this.hatch;
+    n.eggG.scale.set(1 / Math.sqrt(ns), ns, 1 / Math.sqrt(ns));
+    n.eggG.rotation.z = Math.sin(n.wob * (n.taps ? 14 : 3)) * (0.05 + n.taps * 0.06) * (n.taps || Math.sin(t * 0.7) > 0.6 ? 1 : 0.3);
+    n.stars.forEach((s, i) => {
+      const on = i < save.data.stars;
+      s.position.set((i - 1) * 0.7, 2.75 - Math.abs(i - 1) * 0.2 + Math.sin(t * 2 + i) * 0.05, 0.2);
+      s.material = on ? M.glossy('#FFC233', { emissive: '#FFA000', emissiveIntensity: 0.25 }) : M.toy('#FFFFFF', { transparent: true, opacity: 0.55 });
+      s.rotation.y = on ? t * 1.5 + i : 0;
+    });
+    n.count.visible = save.data.eggs > 1;
 
-    // Butterflies / fireflies
-    for (const b of this.flies) {
-      b.a += rand(-2.4, 2.4) * dt;
-      b.f += dt * 18;
-      b.x += Math.cos(b.a) * 34 * dt;
-      b.y += Math.sin(b.a) * 22 * dt;
-      if (b.x < 16 || b.x > W - 16) b.a = Math.PI - b.a;
-      if (b.y < this.horizon - 90 || b.y > this.horizon + 70) b.a = -b.a;
-      b.x = clamp(b.x, 10, W - 10);
+    this.updateResidents(dt);
+    this.updateSmall(dt);
+    this.updateGift(dt);
+    for (const f of this.flyStars) {
+      const k = f.o.k, u = f.o.u;
+      f.s.scale.setScalar(0.5 * k);
+      f.s.position.lerpVectors(f.from, f.to, u);
+      f.s.position.y += Math.sin(u * Math.PI) * 2;
+      f.s.rotation.y = u * 8;
     }
+    this.flyStars = this.flyStars.filter((f) => f.o.u < 1);
 
-    // Small free soap bubbles drifting up: a tiny toy that is always there
-    this.smallT -= dt;
-    if (this.smallT <= 0 && this.small.length < 6) {
-      this.smallT = rand(1.4, 3.4);
-      this.small.push({ x: rand(30, W - 30), y: this.horizon + rand(0, 60), r: rand(10, 19), v: rand(18, 38), ph: rand(TAU) });
-    }
-    for (const s of this.small) {
-      s.y -= s.v * dt;
-      s.ph += dt;
-    }
-    this.small = this.small.filter((s) => s.y > -30);
-
-    // Now and then a little gift floats by. Catching it is a real surprise.
-    this.giftT -= dt;
-    if (this.giftT <= 0 && !this.gift && !this.hatch) {
-      this.gift = { x: rand(50, W - 50), y: H + 50, ph: rand(TAU), kind: pick(['gift', 'star', 'heart']), sq: new Spring(1, 300, 9) };
-      this.giftT = rand(32, 62);
-    }
-    if (this.gift) {
-      this.gift.y -= 44 * dt;
-      this.gift.ph += dt;
-      this.gift.sq.step(dt);
-      if (this.gift.y < -80) this.gift = null;
-    }
-
-    // Residents wander, hop and greet each other
-    for (const r of this.residents) {
-      r.sq.step(dt);
-      r.hopV += 900 * dt;
-      r.hop += r.hopV * dt;
-      if (r.hop > 0) {
-        if (r.hopV > 240) { r.sq.kick(-3.4); }
-        r.hop = 0;
-        r.hopV = 0;
-      }
-      r.wave = Math.max(0, r.wave - dt * 0.8);
-      r.emoteT = Math.max(0, r.emoteT - dt);
-      if (r.emoteT <= 0) r.emote = null;
-      const d = r.tx - r.x;
-      if (Math.abs(d) > 2) {
-        const v = 42 * Math.sign(d);
-        r.x += v * dt;
-        r.y += (r.ty - r.y) * Math.min(1, dt * 1.2);
-        r.face = Math.sign(d);
-        r.walk += dt * 11;
-        if (r.hop === 0 && Math.sin(r.walk) > 0.98) r.hopV = -70;
-      } else {
-        r.walk = 0;
-        r.idle -= dt;
-        if (r.idle <= 0) {
-          r.idle = rand(2.5, 7);
-          const act = Math.random();
-          if (act < 0.55) {
-            r.tx = clamp(r.x + rand(-110, 110), 30, W - 130);
-            r.ty = this.meadowY(rand(0.1, 0.85));
-          } else if (act < 0.75) {
-            r.hopV = -210;
-            if (Math.random() < 0.35) audio.voice('chirp', FRIENDS[r.id].voice, 0.22);
-          } else {
-            r.wave = 1;
-          }
-        }
-      }
-    }
-
-    // Idle nudge: a world occasionally wiggles to invite a tap
     this.nudgeT -= dt;
     if (this.nudgeT <= 0 && !this.hatch) {
       this.nudgeT = rand(3.2, 6);
       const b = pick(this.bubbles);
-      b.sq.kick(1.8);
-      fx.sparkle(b.x + rand(-b.sq.x * this.r, this.r), b.y - this.r * 0.8, 3);
+      b.sq.kick(2);
+      b.spin.kick(rand(-6, 6));
+      fx.sparkle(b.x + rand(-this.r, this.r) * 0.6, b.y - this.r * 0.8, 3);
     }
-
     if (this.hatch) this.updateHatch(dt);
   },
 
-  drawResident(c, r) {
-    const R = this.W > 640 ? 42 : 35;
-    // Further away means smaller: a touch of depth on the meadow
-    const dep = lerp(0.84, 1.08, clamp((r.y - this.horizon) / (this.H - this.horizon - 80)));
-    const RR = R * dep;
-    groundShadow(c, r.x, r.y + RR * 0.92, RR * (1 + r.hop * 0.003), RR * 0.22);
-    c.save();
-    c.translate(r.x, r.y + r.hop);
-    if (r.face < 0) c.scale(-1, 1);
-    const sq = r.sq.x;
-    const lookX = clamp((this.look.x - r.x) / 90, -1, 1) * r.face, lookY = clamp((this.look.y - r.y) / 120, -1, 1);
-    drawCreature(c, r.id, {
-      R: RR, t: this.t, sx: 2 - sq, sy: sq, seed: r.seed, blink: r.emote ? 0 : blinkAt(this.t, r.seed), lookX, lookY,
-      eyes: r.emote || 'open', mouth: r.emote === 'happy' ? 'open' : 'smile', mouthOpen: r.emote === 'happy' ? 0.7 : 0, walk: r.walk,
-      wave: r.wave > 0 ? Math.sin(Math.min(1, r.wave) * Math.PI) : 0, wob: r.sq.v * 0.1, shiny: save.data.shiny.includes(r.id)
-    });
-    c.restore();
+  updateResidents(dt) {
+    const cam = this.cam.position;
+    for (const r of this.residents) {
+      const c = r.c, p = c.root.position;
+      const dx = r.tx - p.x, dz = r.tz - p.z, d = Math.hypot(dx, dz);
+      if (d > 0.08 && !c.sleep) {
+        const v = 1.3 * dt;
+        p.x += (dx / d) * Math.min(v, d);
+        p.z += (dz / d) * Math.min(v, d);
+        r.walk += dt * 9;
+        c.root.rotation.y += (clamp(Math.atan2(dx, dz), -1.1, 1.1) - c.root.rotation.y) * Math.min(1, dt * 6);
+        if (c.y <= 0 && Math.sin(r.walk) > 0.95) c.hop(2.2);
+      } else {
+        c.root.rotation.y += (0 - c.root.rotation.y) * Math.min(1, dt * 3);
+        r.idle -= dt;
+        if (r.idle <= 0) {
+          r.idle = rand(2.5, 7);
+          if (c.sleep) {
+            if (Math.random() < 0.4) audio.voice('snore', c.voicePitch, 0.12);
+            continue;
+          }
+          const act = Math.random();
+          if (act < 0.55) [r.tx, r.tz] = this.randSpot();
+          else if (act < 0.75) {
+            c.hop(4.5);
+            if (Math.random() < 0.35) c.say(pick(['chirp', 'hehe', 'coo']), 0.18);
+          } else if (act < 0.88) c.wave();
+          else {
+            // greet a neighbour: both turn to each other and chat
+            const o = pick(this.residents);
+            if (o !== r) { c.look(o.c.root.position.clone().add(V(0, 0.6, 0))); r.greet = 2; c.say('hehe', 0.15); }
+          }
+        }
+      }
+      r.greet = Math.max(0, r.greet - dt);
+      if (r.greet <= 0 && !this.hatch) c.look(cam);
+      c.update(dt);
+    }
+  },
+
+  updateSmall(dt) {
+    this.smallT -= dt;
+    if (this.smallT <= 0 && this.small.length < 6 && !this.hatch) {
+      this.smallT = rand(1.4, 3.4);
+      const x = rand(-this.meadow.x, this.meadow.x), z = rand(this.meadow.z0, this.meadow.z1);
+      const s = mesh(G.sphere(20), M.bubble({ opacity: 0.3 }), { p: [x, 0.5, z], s: rand(0.22, 0.4), parent: this.world, cast: false });
+      s.renderOrder = 3;
+      this.small.push({ m: s, v: rand(0.6, 1.2), ph: rand(TAU), x });
+    }
+    for (const s of this.small) {
+      s.ph += dt;
+      s.m.position.y += s.v * dt;
+      s.m.position.x = s.x + Math.sin(s.ph * 1.6) * 0.3;
+      if (s.m.position.y > 14) { this.world.remove(s.m); s.dead = true; }
+    }
+    this.small = this.small.filter((s) => !s.dead);
+  },
+
+  updateGift(dt) {
+    this.giftT -= dt;
+    if (this.giftT <= 0 && !this.gift && !this.hatch) {
+      this.giftT = rand(32, 62);
+      const g = group(this.world);
+      const kind = pick(['#FF6F9B', '#6FC4FF', '#FFC233', '#B48BFF']);
+      mesh(G.box(0.12), M.toy(kind), { s: 0.8, parent: g });
+      mesh(G.box(0.05), M.toy('#FFFFFF'), { s: [0.84, 0.84, 0.18], parent: g, cast: false });
+      mesh(G.box(0.05), M.toy('#FFFFFF'), { s: [0.18, 0.84, 0.84], parent: g, cast: false });
+      for (const k of [-1, 1]) mesh(G.sphere(12), M.glossy('#FFFFFF'), { p: [k * 0.2, 0.5, 0], s: [0.22, 0.14, 0.1], parent: g, cast: false });
+      const bal = mesh(G.sphere(24), M.glossy(pick(['#FF5C8F', '#FFC233', '#5698FF'])), { p: [0, 2.2, 0], s: [0.7, 0.85, 0.7], parent: g, cast: false });
+      mesh(G.cyl(4), M.basic('#FFFFFF'), { p: [0, 1, 0], s: [0.015, 1.4, 0.015], parent: g, cast: false });
+      const x = rand(-6, 6);
+      g.position.set(x, -3, -14);
+      this.gift = { g, x, ph: rand(TAU), sq: new Spring(1, 300, 9), bal };
+    }
+    const gf = this.gift;
+    if (gf) {
+      gf.ph += dt;
+      gf.g.position.y += 1.2 * dt;
+      gf.g.position.x = gf.x + Math.sin(gf.ph * 0.9) * 1.2;
+      gf.g.rotation.z = Math.sin(gf.ph * 1.3) * 0.12;
+      const s = gf.sq.step(dt);
+      gf.g.scale.setScalar(s);
+      if (gf.g.position.y > 22) { this.world.remove(gf.g); this.gift = null; }
+    }
   },
 
   draw(c) {
-    const W = this.W, H = this.H, t = this.t, night = this.mode === 'night';
-    const back = worldSprite(W, H, this.mode, this.horizon);
-    c.drawImage(back.cv, 0, 0, W, H);
-
-    // Sun or moon
-    const sq = this.sunSq.x;
-    c.save();
-    c.translate(this.sun.x, this.sun.y);
-    c.scale(sq, 2 - sq);
-    if (night) drawMoon(c, 0, 0, this.sun.r, t);
-    else drawSun(c, 0, 0, this.sun.r, t, this.sunLaugh);
-    c.restore();
-
-    if (night) {
-      for (let i = 0; i < 6; i++) {
-        const x = ((i * 137.5) % W), y = (i * 67) % (this.horizon * 0.8) + 16;
-        const k = 0.5 + 0.5 * Math.sin(t * 2 + i * 2);
-        softStar(c, x, y, 2 + 3 * k, 4, 0.34);
-        c.fillStyle = `rgba(255,245,190,${0.5 + k * 0.5})`;
-        c.fill();
-      }
-    }
-
-    for (const cl of this.clouds) {
-      const s = cl.s * cl.p.x;
-      drawCloud(c, cl.x, cl.y, s, night ? 0.7 : 0.92, night);
-    }
-
-    // Butterflies by day, fireflies by night
-    for (const b of this.flies) {
-      if (night) {
-        const k = 0.5 + 0.5 * Math.sin(t * 3 + b.f * 0.04);
-        glow(c, b.x, b.y, 15, '#FFF08A', 0.5 + k * 0.4);
-        c.fillStyle = '#FFFBD0';
-        ell(c, b.x, b.y, 2.2);
-        c.fill();
-      } else {
-        c.save();
-        c.translate(b.x, b.y);
-        c.rotate(Math.cos(b.a) * 0.3);
-        const flap = Math.abs(Math.sin(b.f));
-        c.fillStyle = b.col;
-        for (const s of [-1, 1]) {
-          c.save();
-          c.scale(s * (0.26 + flap * 0.74), 1);
-          ell(c, 5.6, -3.2, 5.6, 6.6, -0.3);
-          c.fill();
-          c.fillStyle = light(b.col, 0.3);
-          ell(c, 4.2, 4, 3.8, 3.8);
-          c.fill();
-          c.restore();
-        }
-        c.fillStyle = P.ink;
-        ell(c, 0, 0, 1.3, 5);
-        c.fill();
-        c.restore();
-      }
-    }
-
-    for (const s of this.small) {
-      const x = s.x + Math.sin(s.ph * 1.6) * 8;
-      c.drawImage(smallBubble().cv, x - s.r, s.y - s.r, s.r * 2, s.r * 2);
-    }
-
-    // All the worlds
-    const r = this.r;
-    for (const b of this.bubbles) {
-      const sp = bubbleSprite(b, r);
-      const by = b.y + Math.sin(t * 1.15 + b.phase) * 4.6, bx = b.x + Math.cos(t * 0.8 + b.phase) * 2;
-      const k = b.sq.x * b.enter;
-      c.save();
-      c.translate(bx, by);
-      c.scale(k * (2 - b.sq.x) * 0.5 + k * 0.5, k);
-      c.drawImage(sp.cv, -sp.w / 2, -sp.h / 2, sp.w, sp.h);
-      c.restore();
-    }
-
-    // The nest with the waiting egg and its star progress
-    this.drawNest(c);
-
-    // Residents, nearest in front
-    const list = [...this.residents].sort((a, b) => a.y - b.y);
-    for (const q of list) this.drawResident(c, q);
-
-    // Flower xylophone along the bottom
-    for (const f of this.flowers) this.drawFlower(c, f);
-
-    if (this.gift) this.drawGift(c);
-    if (this.flyStars) for (const s of this.flyStars) drawStarPickup(c, s.x, s.y, s.r, s.rot);
-    for (const b of this.buttons) b.draw(c);
     if (this.hatch) this.drawHatch(c);
+    else for (const b of this.buttons) b.draw(c);
   },
 
-  drawNest(c) {
-    const { x, y } = this.nest;
-    groundShadow(c, x, y + 22, 58, 12);
-    // Woven nest
-    const back = c.createLinearGradient(0, y - 8, 0, y + 28);
-    back.addColorStop(0, '#C9925C');
-    back.addColorStop(1, '#A56F42');
-    c.fillStyle = back;
-    ell(c, x, y + 8, 50, 20);
-    c.fill();
-    const eggs = save.data.eggs;
-    if (eggs > 0 && !this.hatch) {
-      const wob = Math.sin(this.egg.wob * 3.6) * 0.06 * (0.5 + 0.5 * Math.sin(this.egg.wob * 0.9));
-      const sq = this.egg.sq.x;
-      glow(c, x, y - 22, 66 + Math.sin(this.t * 3) * 6, '#FFF3A0', 0.55);
-      c.save();
-      c.translate(x, y + 6);
-      c.rotate(wob + (this.egg.shake || 0));
-      c.scale(2 - sq, sq);
-      drawEgg(c, 0, -30, 1.04, this.egg.taps, this.t);
-      c.restore();
-    }
-    // Nest front rim
-    c.fillStyle = '#D7A36B';
-    c.beginPath();
-    c.ellipse(x, y + 12, 52, 19, 0, 0.05, Math.PI - 0.05);
-    c.quadraticCurveTo(x, y + 2, x + 52, y + 13);
-    c.fill();
-    c.strokeStyle = 'rgba(120,70,30,.45)';
-    c.lineWidth = 2;
-    c.lineCap = 'round';
-    for (let i = 0; i < 8; i++) {
-      const px = x - 42 + i * 12;
-      c.beginPath();
-      c.moveTo(px, y + 12);
-      c.quadraticCurveTo(px + 4, y + 20, px + 10, y + 22 - Math.abs(i - 3.5));
-      c.stroke();
-    }
-    // Three star slots: every finished game fills one, three bring a new egg
-    for (let i = 0; i < 3; i++) {
-      const sx = x - 22 + i * 22, sy = y + 44;
-      const on = i < save.data.stars;
-      softStar(c, sx, sy, on ? 10.5 : 9);
-      c.fillStyle = on ? '#FFC92E' : 'rgba(255,255,255,.42)';
-      c.fill();
-      if (on) {
-        c.lineWidth = 1.6;
-        c.strokeStyle = '#fff';
-        c.stroke();
-      }
-    }
-  },
-
-  drawFlower(c, f) {
-    const sq = f.sq.x;
-    c.save();
-    c.translate(f.x, f.y);
-    c.rotate(f.lean.x + Math.sin(this.t * 1.5 + f.x) * 0.035);
-    c.scale(f.s * (2 - sq), f.s * sq);
-    c.strokeStyle = '#3EAB5E';
-    c.lineWidth = 4.5;
-    c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(0, 8);
-    c.lineTo(0, -28);
-    c.stroke();
-    c.fillStyle = clay(c, 9, -8, 10, '#67CF74');
-    ell(c, 9, -7, 10, 5, -0.5);
-    c.fill();
-    c.translate(0, -36);
-    if (f.glow > 0) glow(c, 0, 0, 30, f.col, f.glow * 0.8);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU + 0.3;
-      c.fillStyle = clay(c, Math.cos(a) * 9, Math.sin(a) * 9, 7.5, f.col);
-      ell(c, Math.cos(a) * 9, Math.sin(a) * 9, 7.3);
-      c.fill();
-    }
-    c.fillStyle = clay(c, 0, 0, 7, '#FFDE6A');
-    ell(c, 0, 0, 6.8);
-    c.fill();
-    c.restore();
-  },
-
-  drawGift(c) {
-    const g = this.gift;
-    const x = g.x + Math.sin(g.ph * 1.2) * 14, y = g.y;
-    const sq = g.sq.x;
-    g.rx = x; g.ry = y;
-    c.save();
-    c.translate(x, y);
-    c.scale(sq, 2 - sq);
-    c.strokeStyle = 'rgba(255,255,255,.8)';
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(0, 26);
-    c.quadraticCurveTo(5, 42, -2, 60);
-    c.stroke();
-    if (g.kind === 'heart') {
-      heart(c, 0, 0, 27);
-      c.fillStyle = clay(c, 0, 0, 34, P.rose);
-      c.fill();
-      gloss(c, -11, -11, 11, 7, 0.8);
-    } else if (g.kind === 'star') {
-      drawStarPickup(c, 0, 0, 30, Math.sin(g.ph) * 0.2);
-    } else {
-      ell(c, 0, 0, 27, 31);
-      c.fillStyle = clay(c, 0, 0, 30, P.violet);
-      c.fill();
-      gloss(c, -9, -14, 10, 7, 0.8);
-      c.fillStyle = P.butter;
-      c.fillRect(-3.5, -30, 7, 60);
-    }
-    c.restore();
-  },
-
-  // --- input -----------------------------------------------------------------
+  // ---- input -----------------------------------------------------------------------
   down(p) {
-    this.look.x = p.x;
-    this.look.y = p.y;
     if (this.hatch) { this.tapHatch(p); return; }
-
-    // Gift on the wind
-    if (this.gift && dist(p.x, p.y, this.gift.rx || 0, this.gift.ry || 0) < 52) {
-      fx.burst(this.gift.rx, this.gift.ry, { kind: 'confetti', n: 26, speed: 260 });
-      fx.stars(this.gift.rx, this.gift.ry, 10);
-      audio.sfx('bubble');
-      audio.success();
-      haptic();
-      this.gift = null;
-      save.earnStar();
-      save.data.pendingStars = 0;
-      this.egg.sq.kick(5);
-      return;
-    }
-    // Soap bubbles
-    for (const s of this.small) {
-      if (dist(p.x, p.y, s.x + Math.sin(s.ph * 1.6) * 8, s.y) < s.r + 12) {
-        audio.sfx('bubble', { rate: 30 / (s.r + 10) });
-        audio.note('bell', penta(Math.floor(rand(0, 9))), { vol: 0.28 });
-        fx.bubbles(s.x, s.y, 5);
-        this.small = this.small.filter((q) => q !== s);
+    const st = this.stage;
+    // gift
+    if (this.gift) {
+      const s = st.objScreen(this.gift.g);
+      const sb = st.objScreen(this.gift.bal);
+      if (dist(p.x, p.y, s.x, s.y) < 60 || dist(p.x, p.y, sb.x, sb.y) < 50) {
+        fx.burst(s.x, s.y, { kind: 'confetti', n: 26, speed: 260 });
+        fx.stars(s.x, s.y, 10);
+        audio.sfx('poof');
+        audio.success();
+        haptic();
+        this.world.remove(this.gift.g);
+        this.gift = null;
+        save.earnStar();
+        save.data.pendingStars = 0;
+        wait(0.2, () => this.launchStar());
         return;
       }
     }
-    // Worlds
+    for (const s of this.small) {
+      const sc = st.objScreen(s.m);
+      if (dist(p.x, p.y, sc.x, sc.y) < 30) {
+        audio.sfx('bubble', { rate: rand(0.8, 1.3) });
+        audio.note('bell', penta(Math.floor(rand(0, 9))), { vol: 0.28 });
+        fx.bubbles(sc.x, sc.y, 5);
+        this.world.remove(s.m);
+        s.dead = true;
+        this.small = this.small.filter((q) => !q.dead);
+        return;
+      }
+    }
     for (const b of this.bubbles) {
-      if (dist(p.x, p.y, b.x, b.y) < this.r + 8) {
+      if (dist(p.x, p.y, b.x, b.y) < this.r + 6) {
         p.bubble = b;
         b.sq.to = 0.84;
         b.sq.kick(-2);
+        b.spin.kick(8);
+        if (b.crit) { b.crit.poke(); b.crit.say('hehe', 0.4); }
         audio.note('kalimba', penta(b.note), { vol: 0.62 });
         haptic();
         return;
       }
     }
-    // Egg
-    if (save.data.eggs > 0 && dist(p.x, p.y, this.nest.x, this.nest.y - 22) < 66) {
-      this.tapEgg();
-      return;
+    // egg
+    if (save.data.eggs > 0) {
+      const e = st.objScreen(this.nest.egg);
+      if (dist(p.x, p.y, e.x, e.y) < 70) { this.tapEgg(); return; }
     }
-    // Friends
-    for (const r of [...this.residents].sort((a, b) => b.y - a.y)) {
-      if (dist(p.x, p.y, r.x, r.y) < 44) {
-        r.sq.kick(5);
-        r.hopV = -300;
-        r.emote = pick(['happy', 'happy', 'wow', 'heart']);
-        r.emoteT = 1.1;
-        audio.voice(pick(['giggle', 'coo', 'wow']), FRIENDS[r.id].voice);
-        fx.hearts(r.x, r.y - 30, 4);
+    // friends
+    const hit = st.pick(p.x, p.y, this.residents.map((r) => r.c.root));
+    if (hit) {
+      const r = this.residents.find((q) => q.c.root.getObjectById(hit.object.id));
+      if (r) {
+        const c = r.c;
+        if (c.sleep) {
+          c.sleep = false;
+          c.setMood('wow', 0.8);
+          c.say('yawn', 0.5);
+        } else {
+          c.poke();
+          c.hop(5.5);
+          c.setMood(pick(['happy', 'wow', 'happy']), 1.1);
+          c.say(pick(['giggle', 'yay', 'hehe', 'wow', 'mew']), 0.6);
+        }
+        const s = st.objScreen(c.body);
+        fx.hearts(s.x, s.y - 20, 4);
         haptic();
         return;
       }
     }
-    // Flowers
-    for (const f of this.flowers) {
-      if (dist(p.x, p.y, f.x, f.y - 30) < 34) {
-        this.playFlower(f);
-        p.flowerSlide = f;
-        return;
-      }
+    for (const h of this.harp) {
+      const s = st.objScreen(h.head);
+      if (dist(p.x, p.y, s.x, s.y) < 34) { this.playFlower(h); p.flowerSlide = h; return; }
     }
-    // Sun
-    if (dist(p.x, p.y, this.sun.x, this.sun.y) < this.sun.r + 22) {
-      this.sunSq.kick(5);
-      this.sunLaugh = 1;
-      audio.sparkle(2, 5);
-      const order = ['day', 'sunset', 'night'];
-      this.mode = order[(order.indexOf(this.mode) + 1) % 3];
-      music.play(this.mode === 'night' ? 'night' : 'hub');
-      fx.sparkle(this.sun.x, this.sun.y, 18);
+    // sun or moon changes the time of day
+    const sunObj = this.mode === 'night' ? this.moon : this.sun;
+    const ss = st.objScreen(sunObj);
+    if (dist(p.x, p.y, ss.x, ss.y) < 60) { this.nextSky(); return; }
+    // clouds and trees
+    const hc = st.pick(p.x, p.y, [...this.clouds, ...this.trees]);
+    if (hc) {
+      let o = hc.object;
+      while (o.parent && !this.clouds.includes(o) && !this.trees.includes(o)) o = o.parent;
+      o.userData.sq.kick(this.clouds.includes(o) ? 5 : 4);
+      audio.sfx(this.clouds.includes(o) ? 'blup' : 'boing', { rate: rand(0.8, 1.2), vol: 0.6 });
+      fx.burst(p.x, p.y, { kind: this.clouds.includes(o) ? 'bubble' : 'heart', n: 6, speed: 80, g: 200, colors: [P.sky, P.white, P.pink], size: 14, life: 0.9, spin: 0 });
       return;
-    }
-    // Clouds
-    for (const cl of this.clouds) {
-      if (dist(p.x, p.y, cl.x, cl.y) < 66 * cl.s) {
-        cl.p.kick(6);
-        audio.sfx('blup', { rate: rand(0.8, 1.2) });
-        fx.burst(cl.x, cl.y + 18, { kind: 'bubble', n: 7, speed: 70, g: 240, colors: [P.sky, P.white], size: 13, life: 0.9, spin: 0 });
-        return;
-      }
     }
     fx.sparkle(p.x, p.y, 5);
     audio.sfx('plip', { rate: rand(0.9, 1.3), vol: 0.5 });
   },
 
   move(p) {
-    this.look.x = p.x;
-    this.look.y = p.y;
     if (p.bubble && dist(p.x, p.y, p.bubble.x, p.bubble.y) > this.r + 30) {
       p.bubble.sq.to = 1;
       p.bubble = null;
     }
     if (p.flowerSlide) {
-      // Sliding along the row plays them like a harp
-      for (const f of this.flowers) {
-        if (f !== p.flowerSlide && Math.abs(p.x - f.x) < 24) {
-          this.playFlower(f);
-          p.flowerSlide = f;
+      for (const h of this.harp) {
+        if (h !== p.flowerSlide && Math.abs(p.x - h.x) < 26) {
+          this.playFlower(h);
+          p.flowerSlide = h;
           break;
         }
       }
@@ -760,6 +775,7 @@ export const hub = {
     b.sq.kick(4);
     if (cancelled) return;
     save.data.seen.hub = 1;
+    save.data.seen['w:' + b.id] = 1;
     save.touch();
     audio.sfx('bubble', { rate: 0.7, vol: 0.8 });
     fx.bubbles(b.x, b.y, 12);
@@ -767,26 +783,27 @@ export const hub = {
     go(b.id, null, { x: b.x, y: b.y });
   },
 
-  playFlower(f) {
-    f.sq.kick(5);
-    f.lean.kick(rand(-3, 3));
-    f.glow = 1;
-    audio.note('harp', penta(f.note - 2), { vol: 0.7, wet: 0.7 });
-    fx.sparkle(f.x, f.y - 38, 3);
+  playFlower(h) {
+    h.sq.kick(5);
+    h.lean.kick(rand(-3, 3));
+    audio.note('harp', penta(h.note - 2), { vol: 0.7, wet: 0.7 });
+    const s = this.stage.objScreen(h.head);
+    fx.sparkle(s.x, s.y, 3);
     haptic();
   },
 
-  // --- Egg hatching: three taps, and a brand-new friend ---------------------------
+  // ---- eggs: three taps, and a brand-new friend ---------------------------------------
   tapEgg() {
-    const e = this.egg;
-    e.taps++;
-    e.sq.kick(7);
-    audio.note('kalimba', penta(2 + e.taps * 2), { vol: 0.8 });
-    audio.sfx('tick', { vol: 0.8 });
-    fx.sparkle(this.nest.x, this.nest.y - 30, 8 + e.taps * 4);
+    const n = this.nest;
+    n.taps++;
+    n.sq.kick(7);
+    audio.note('kalimba', penta(2 + n.taps * 2), { vol: 0.8 });
+    audio.sfx('crack', { vol: 0.5 + n.taps * 0.15 });
+    const s = this.stage.objScreen(n.egg);
+    fx.sparkle(s.x, s.y, 8 + n.taps * 4);
     haptic();
-    if (e.taps >= 3) this.startHatch();
-    else hint.set({ from: [this.nest.x, this.nest.y - 22], delay: 1.2 });
+    if (n.taps >= 3) this.startHatch();
+    else hint.set({ from: [s.x, s.y], delay: 1.2 });
   },
 
   startHatch() {
@@ -794,10 +811,8 @@ export const hub = {
     save.data.eggs--;
     const owned = new Set(save.data.friends);
     const fresh = FRIEND_IDS.filter((f) => !owned.has(f));
-    // Everyone found? Then eggs bring a friend back wearing a golden crown, for a second
-    // collection as long as the first. Only after that do they repeat.
     const plain = FRIEND_IDS.filter((f) => !save.data.shiny.includes(f));
-    const id = fresh.length ? fresh[0 + Math.floor(Math.random() * Math.min(5, fresh.length))] : pick(plain.length ? plain : FRIEND_IDS);
+    const id = fresh.length ? fresh[Math.floor(Math.random() * Math.min(5, fresh.length))] : pick(plain.length ? plain : FRIEND_IDS);
     const isNew = !owned.has(id);
     if (isNew) {
       save.data.friends.push(id);
@@ -806,133 +821,149 @@ export const hub = {
       save.data.shiny.push(id);
       inviteToMeadow(id, this.meadowCap());
     }
-    // Every friend arrives with a gift for the wardrobe
     const item = unlockNextItem();
     save.touch();
-    this.hatch = { id, t: 0, a: 0, ready: false, jump: 0, jumpV: 0, sq: new Spring(1, 300, 9), item };
-    this.egg.taps = 0;
+    this.nest.taps = 0;
+    // the stage for the new friend: a dimmed world, turning rays, the friend up close
+    const st = this.stage, cam = this.cam;
+    const g = group(st.scene);
+    const fwd = new THREE.Vector3();
+    cam.getWorldDirection(fwd);
+    g.position.copy(cam.position).addScaledVector(fwd, 7);
+    g.quaternion.copy(cam.quaternion);
+    const dim = mesh(G.plane(), new THREE.MeshBasicMaterial({ color: '#2E1E66', transparent: true, opacity: 0, depthWrite: false, fog: false }), { s: [60, 60, 1], p: [0, 0, -1.5], parent: g, cast: false });
+    const rays = mesh(G.plane(), new THREE.MeshBasicMaterial({ map: raysTex(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }), { s: [14, 14, 1], p: [0, 0.2, -1.2], parent: g, cast: false });
+    const crit = new Critter(id, { size: 1 });
+    if (save.data.shiny.includes(id)) addCrown(crit);
+    crit.root.position.set(0, -1.15, 0);
+    crit.root.scale.setScalar(0.01);
+    g.add(crit.root);
+    crit.setMood('wow', 1);
+    // shell halves fly away
+    const shells = [];
+    for (const k of [-1, 1]) {
+      const sh = mesh(eggShape(), this.nest.egg.material, { s: [0.9, 0.5, 0.9], p: [0, 0.1, 0], parent: g, cast: false });
+      if (k > 0) sh.rotation.x = Math.PI;
+      shells.push({ m: sh, v: V(k * 2.4, 3.5 + k, 1.5), spin: k * 5 });
+    }
+    this.hatch = { id, t: 0, a: 0, ready: false, item, g, dim, rays, crit, shells, closing: false };
     audio.fanfare();
-    audio.voice('wow', FRIENDS[id].voice, 0.8);
+    audio.sfx('shell');
+    wait(0.15, () => crit.say('yay', 0.8));
     fx.confetti(this.W, this.H, 80);
-    fx.burst(this.nest.x, this.nest.y - 30, { kind: 'star', n: 26, colors: [P.sun, P.butter], speed: 400, size: 24, g: 300, life: 1.2 });
+    fx.burst(this.W / 2, this.H * 0.46, { kind: 'star', n: 26, colors: [P.sun, P.butter], speed: 400, size: 24, g: 300, life: 1.2 });
     wait(0.9, () => { if (this.hatch) this.hatch.ready = true; });
-    wait(1.0, () => this.hatch && audio.voice('giggle', FRIENDS[id].voice, 0.7));
+    wait(1.1, () => this.hatch && crit.say('giggle', 0.7));
   },
 
   updateHatch(dt) {
     const h = this.hatch;
     h.t += dt;
-    h.a = Math.min(1, h.a + dt * 3);
-    h.sq.step(dt);
-    h.jumpV += 1100 * dt;
-    h.jump += h.jumpV * dt;
-    if (h.jump > 0) {
-      h.jump = 0;
-      if (h.jumpV > 200) h.sq.kick(-5);
-      h.jumpV = h.t < 8 && Math.random() < 0.012 ? -420 : 0;
+    const fade = h.closing ? clamp(1 - (h.t - h.closeAt) / 0.45) : clamp(h.t / 0.35);
+    h.dim.material.opacity = 0.62 * fade;
+    h.rays.material.opacity = 0.9 * fade;
+    h.rays.rotation.z = this.t * 0.35;
+    const k = h.closing ? fade : E.back(clamp(h.t / 0.55));
+    h.crit.root.scale.setScalar(Math.max(0.01, k * 1.0));
+    h.crit.update(dt);
+    h.crit.look(this.cam.position);
+    if (h.t > 0.8 && h.crit.y <= 0 && Math.random() < dt * 0.9) { h.crit.hop(5); h.crit.setMood('happy', 0.8); }
+    for (const s of h.shells) {
+      s.v.y -= 9 * dt;
+      s.m.position.addScaledVector(s.v, dt);
+      s.m.rotation.z += s.spin * dt;
+      s.m.visible = h.t < 1.6;
+    }
+    if (h.closing && fade <= 0) {
+      this.stage.scene.remove(h.g);
+      h.crit.dispose();
+      const id = h.id;
+      this.hatch = null;
+      if (!this.residents.find((r) => r.id === id)) {
+        const [x, z] = this.randSpot();
+        const R = this.addResident(id, 0, (this.meadow.z0 + this.meadow.z1) / 2);
+        R.tx = x; R.tz = z;
+        R.c.hop(6);
+        R.c.wave();
+        if (this.residents.length > this.meadowCap()) {
+          const stay = meadowList(this.meadowCap());
+          const idx = this.residents.findIndex((r) => !stay.includes(r.id));
+          if (idx >= 0) {
+            const gone = this.residents.splice(idx, 1)[0];
+            this.world.remove(gone.c.root);
+          }
+        }
+      }
+      audio.success();
+      this.updateHint();
     }
   },
 
   tapHatch(p) {
     const h = this.hatch;
-    h.jumpV = -480;
-    h.sq.kick(5);
-    audio.voice(pick(['giggle', 'chirp', 'wow']), FRIENDS[h.id].voice);
+    h.crit.hop(6);
+    h.crit.poke();
+    h.crit.setMood('happy', 1);
+    h.crit.say(pick(['giggle', 'yay', 'hehe', 'mew']), 0.7);
     fx.hearts(p.x, p.y, 6);
     haptic();
-    if (!h.ready || h.t < 1.2) return;
-    if (!h.closing) {
-      h.closing = true;
-      wait(0.5, () => {
-        const id = h.id;
-        this.hatch = null;
-        const found = this.residents.find((r) => r.id === id);
-        if (!found) {
-          const R = makeResident(id, this.W * 0.5, this.meadowY(0.6));
-          R.hopV = -400;
-          R.wave = 1;
-          this.residents.push(R);
-          if (this.residents.length > this.meadowCap()) {
-            const stay = meadowList(this.meadowCap());
-            const idx = this.residents.findIndex((r) => !stay.includes(r.id));
-            if (idx >= 0) this.residents.splice(idx, 1);
-          }
-        }
-        audio.success();
-        this.updateHint();
-      });
-    }
+    if (!h.ready || h.t < 1.2 || h.closing) return;
+    h.closing = true;
+    h.closeAt = h.t + 0.4;
   },
 
   drawHatch(c) {
-    const h = this.hatch, W = this.W, H = this.H;
-    const a = h.closing ? Math.max(0, h.a - clamp(h.t - h.closeStart || 0)) : h.a;
-    if (h.closing && h.closeStart === undefined) h.closeStart = h.t;
-    const fade = h.closing ? clamp(1 - (h.t - h.closeStart) / 0.45) : h.a;
+    const h = this.hatch;
+    if (!h.item) return;
+    const fade = h.closing ? clamp(1 - (h.t - h.closeAt) / 0.45) : 1;
+    const k = E.back(clamp((h.t - 0.6) / 0.4)) * fade;
+    if (k <= 0) return;
+    const ix = this.W / 2, iy = this.H * 0.5 + Math.min(this.H * 0.3, 230);
     c.save();
-    c.globalAlpha = fade * 0.72;
-    c.fillStyle = '#3A2470';
-    c.fillRect(0, 0, W, H);
+    c.translate(ix, iy + Math.sin(this.t * 2.2) * 4);
+    c.scale(k, k);
+    c.shadowColor = 'rgba(40,20,90,.35)';
+    c.shadowBlur = 14;
+    c.shadowOffsetY = 5;
+    c.fillStyle = 'rgba(255,255,255,.96)';
+    ell(c, 0, 0, 46);
+    c.fill();
+    c.shadowColor = 'transparent';
+    c.lineWidth = 4;
+    c.strokeStyle = P.butter;
+    c.stroke();
+    drawGiftItem(c, h.item, 62);
     c.restore();
-    const cx = W / 2, cy = H * 0.46;
-    c.save();
-    c.globalAlpha = fade;
-    // Slowly turning rays of light
-    c.translate(cx, cy);
-    c.rotate(this.t * 0.4);
-    const n = 12, R = Math.max(W, H) * 0.8;
-    for (let i = 0; i < n; i++) {
-      c.rotate(TAU / n);
-      const g = c.createLinearGradient(0, 0, 0, -R);
-      g.addColorStop(0, 'rgba(255,240,170,.42)');
-      g.addColorStop(1, 'rgba(255,240,170,0)');
-      c.fillStyle = g;
-      c.beginPath();
-      c.moveTo(0, 0);
-      c.lineTo(-R * 0.13, -R);
-      c.lineTo(R * 0.13, -R);
-      c.closePath();
-      c.fill();
-    }
-    c.restore();
-
-    const size = 94 * Math.min(W / 390, 1.4);
-    const enter = E.back(clamp(h.t / 0.5));
-    c.save();
-    c.globalAlpha = fade;
-    groundShadow(c, cx, cy + size * 0.98, size * (1 + h.jump * 0.002), size * 0.22, 0.4);
-    glow(c, cx, cy, size * 2, '#FFF3C0', 0.5);
-    c.translate(cx, cy + h.jump);
-    c.scale(enter * (2 - h.sq.x), enter * h.sq.x);
-    drawCreature(c, h.id, { R: size, t: this.t, eyes: h.t < 0.8 ? 'wow' : (Math.sin(h.t * 0.8) > 0.3 ? 'happy' : 'open'), mouthOpen: 0.75, wave: 0.8, waveBoth: true, sparkly: true, blink: blinkAt(this.t, 1), shiny: save.data.shiny.includes(h.id) });
-    c.restore();
-    if (h.item) {
-      // The present she brought along
-      const ix = cx, iy = cy + size * 1.72, k = E.back(clamp((h.t - 0.5) / 0.4));
-      c.save();
-      c.globalAlpha = fade;
-      c.translate(ix, iy + Math.sin(this.t * 2.2) * 4);
-      c.scale(k, k);
-      c.fillStyle = 'rgba(255,255,255,.95)';
-      ell(c, 0, 0, 44);
-      c.fill();
-      c.lineWidth = 4;
-      c.strokeStyle = P.butter;
-      c.stroke();
-      drawGiftItem(c, h.item, 62);
-      c.restore();
-    }
   }
 };
 
-const i3 = () => Math.floor(rand(0, 5));
+let raysT = null;
+function raysTex() {
+  if (raysT) return raysT;
+  raysT = canvasTex(512, 512, (x) => {
+    x.translate(256, 256);
+    for (let i = 0; i < 14; i++) {
+      x.rotate(TAU / 14);
+      const g = x.createLinearGradient(0, 0, 0, -256);
+      g.addColorStop(0, 'rgba(255,240,170,.75)');
+      g.addColorStop(1, 'rgba(255,240,170,0)');
+      x.fillStyle = g;
+      x.beginPath(); x.moveTo(0, 0); x.lineTo(-34, -256); x.lineTo(34, -256); x.closePath(); x.fill();
+    }
+    const r = x.createRadialGradient(0, 0, 0, 0, 0, 200);
+    r.addColorStop(0, 'rgba(255,250,220,.9)');
+    r.addColorStop(1, 'rgba(255,250,220,0)');
+    x.fillStyle = r;
+    x.fillRect(-256, -256, 512, 512);
+  });
+  return raysT;
+}
 
 /** Who lives on the meadow: her own choice first, then the newest friends. */
 export function meadowList(cap) {
   const all = save.data.friends;
   const mine = (save.data.meadow || []).filter((f) => all.includes(f));
   if (save.data.meadow && mine.length) return mine.slice(0, cap);
-  // Not chosen yet: the mascot, then the newest friends
   return [...new Set(['moko', ...[...all].reverse()])].filter((f) => all.includes(f)).slice(0, cap);
 }
 
@@ -942,21 +973,4 @@ function inviteToMeadow(id, cap) {
   if (!m) return;
   if (!m.includes(id)) m.unshift(id);
   if (m.length > cap) m.length = cap;
-}
-
-function smallBubble() {
-  return sprite('smallBubble', 40, 40, (c) => {
-    const r = 19, x = 20;
-    const g = c.createRadialGradient(x - 4, x - 5, 2, x, x, r);
-    g.addColorStop(0, 'rgba(255,255,255,.08)');
-    g.addColorStop(0.75, 'rgba(205,235,255,.22)');
-    g.addColorStop(1, 'rgba(255,255,255,.85)');
-    c.fillStyle = g;
-    ell(c, x, x, r);
-    c.fill();
-    gloss(c, x - 7, x - 8, 6, 3.6, 1);
-    c.fillStyle = 'rgba(255,180,230,.35)';
-    ell(c, x + 6, x + 7, 3.5);
-    c.fill();
-  });
 }

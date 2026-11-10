@@ -76,6 +76,93 @@ function mixInto(a, b, gain = 1, offs = 0) {
 
 const expo = (k) => (u) => Math.exp(-u * k);
 
+
+/** Plucked string by Karplus-Strong, with a soft initial burst so it stays mellow */
+function karplus(f, dur, decay = 0.996, bright = 0.5) {
+  const n = Math.floor(dur * SR), d = new Float32Array(n);
+  const P = Math.max(2, Math.round(SR / f));
+  const buf = new Float32Array(P);
+  let lp = 0;
+  for (let i = 0; i < P; i++) { lp += bright * ((Math.random() * 2 - 1) - lp); buf[i] = lp; }
+  let idx = 0, prev = 0;
+  for (let i = 0; i < n; i++) {
+    const cur = buf[idx];
+    const nx = decay * (0.5 * (cur + prev));
+    prev = cur;
+    buf[idx] = nx;
+    d[i] = cur;
+    idx = (idx + 1) % P;
+  }
+  fadeEdges(d, 0.002, 0.05);
+  return normalize(d, 0.9);
+}
+
+// ---- wordless character voices ---------------------------------------------------
+// A small vocal tract: a soft buzz with a pitch melody, shaped by three formant
+// filters that glide between vowels. Pitched like a small child or a cartoon toy.
+const VOWELS = { a: [900, 1450, 2900], o: [600, 1000, 2700], u: [420, 880, 2500], e: [620, 2150, 3100], i: [380, 2600, 3400], m: [300, 1300, 2600] };
+
+function resonator(f, bw) {
+  let y1 = 0, y2 = 0;
+  return (x, freq) => {
+    const r = Math.exp(-Math.PI * bw / SR), c = 2 * r * Math.cos(TAU * (freq || f) / SR);
+    const y = (1 - r) * x + c * y1 - r * r * y2;
+    y2 = y1; y1 = y;
+    return y;
+  };
+}
+
+/**
+ * syl: [{d: seconds, f0: Hz start, f1: Hz end, v: 'a'|'e'..., v2: vowel at end, breath, gap}]
+ * Pitches between 300 and 700 Hz keep it sweet; the formants never go shrill.
+ */
+function vocal(syls, { shift = 1.12, breath = 0.04 } = {}) {
+  const total = syls.reduce((a, s) => a + s.d + (s.gap || 0), 0) + 0.05;
+  const n = Math.floor(total * SR), out = new Float32Array(n);
+  let at = 0;
+  for (const sy of syls) {
+    const m = Math.floor(sy.d * SR);
+    const F = [resonator(0, 90), resonator(0, 120), resonator(0, 200)];
+    const va = VOWELS[sy.v], vb = VOWELS[sy.v2 || sy.v];
+    let ph = 0, lpN = 0;
+    const o = Math.floor(at * SR);
+    for (let i = 0; i < m && o + i < n; i++) {
+      const u = i / m;
+      const e = sy.curve ? sy.curve(u) : u;
+      const f = sy.f0 + (sy.f1 - sy.f0) * e + (sy.wob ? Math.sin(u * TAU * sy.wob) * sy.f0 * 0.03 : 0);
+      ph += f / SR;
+      if (ph > 1) ph -= 1;
+      // soft glottal buzz: a rounded saw, tilted to a gentle spectrum
+      let x = 0;
+      const H = Math.min(18, Math.floor(7000 / f));
+      for (let h = 1; h <= H; h++) x += Math.sin(TAU * h * ph) / Math.pow(h, 1.25);
+      lpN += 0.3 * ((Math.random() * 2 - 1) - lpN);
+      x += lpN * (sy.breath ?? breath) * 6;
+      const env = Math.pow(Math.sin(Math.PI * Math.min(1, u * (sy.atk || 3))), 0.6) * Math.pow(1 - u, sy.tail || 0.6);
+      let y = 0;
+      for (let k = 0; k < 3; k++) {
+        const fk = (va[k] + (vb[k] - va[k]) * u) * shift;
+        y += F[k](x, fk) * [1, 0.7, 0.22][k];
+      }
+      out[o + i] += y * env * (sy.amp || 1);
+    }
+    at += sy.d + (sy.gap || 0);
+  }
+  // gentle top-end roll-off
+  let lp = 0;
+  for (let i = 0; i < n; i++) { lp += 0.55 * (out[i] - lp); out[i] = lp; }
+  fadeEdges(out, 0.004, 0.03);
+  // Level by loudness, not by peak, so every voice sits at the same volume
+  let r = 0, pk = 0;
+  for (let i = 0; i < n; i++) { r += out[i] * out[i]; pk = Math.max(pk, Math.abs(out[i])); }
+  r = Math.sqrt(r / n) || 1;
+  const g = Math.min(0.22 / r, 0.95 / (pk || 1));
+  for (let i = 0; i < n; i++) out[i] *= g;
+  return out;
+}
+const ease = (u) => u * u * (3 - 2 * u);
+const hump = (u) => Math.sin(Math.PI * u);
+
 // ---- recipes ---------------------------------------------------------------
 const INSTRUMENTS = {
   // warm thumb-piano: clean body, tiny bright tine that dies at once
@@ -86,6 +173,26 @@ const INSTRUMENTS = {
   bell: { base: 72, dur: 1.8, make: (f) => tone(f, 1.8, [[1, 1, 0.75], [2.0, 0.12, 0.45], [3.01, 0.09, 0.2], [4.2, 0.03, 0.08]], 0.002) },
   // plucked harp
   harp: { base: 60, dur: 1.6, make: (f) => tone(f, 1.6, [[1, 1, 0.65], [2, 0.3, 0.38], [3, 0.1, 0.2], [4, 0.05, 0.12]], 0.005) },
+  // warm ukulele-like string (Karplus-Strong): plucky, woody, never sharp
+  pluck: { base: 60, dur: 1.3, make: (f) => karplus(f, 1.3, 0.996, 0.55) },
+  // soft breathy flute for leads: round sine, a slow vibrato and a puff of air
+  flute: {
+    base: 72, dur: 1.2, make: (f) => {
+      const n = Math.floor(1.2 * SR), d = new Float32Array(n);
+      let ph = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / SR, u = i / n;
+        const vib = 1 + 0.006 * Math.sin(TAU * 5.2 * t) * Math.min(1, t / 0.25);
+        ph += TAU * f * vib / SR;
+        const env = Math.min(1, t / 0.05) * Math.exp(-t * 1.4) * Math.min(1, (1 - u) / 0.15);
+        d[i] = env * (Math.sin(ph) + 0.16 * Math.sin(2 * ph) + 0.04 * Math.sin(3 * ph));
+      }
+      mixInto(d, noiseBand(0.12, () => f * 2, 2, (u) => Math.sin(Math.PI * u) ** 2), 0.05);
+      return normalize(d, 0.85);
+    }
+  },
+  // toy glockenspiel: pure and bright, quickly gone
+  glock: { base: 84, dur: 1.2, make: (f) => tone(f, 1.2, [[1, 1, 0.5], [2.76, 0.18, 0.12], [5.4, 0.06, 0.04]], 0.001) },
   // warm round bass
   bass: { base: 36, dur: 1.4, make: (f) => tone(f, 1.4, [[1, 1, 0.6], [2, 0.2, 0.3], [3, 0.04, 0.12]], 0.008) },
   // slow airy pad (soft swell, no percussive onset)
@@ -167,6 +274,104 @@ const SFX = {
     const d = noiseBand(1.2, () => 320, 0.9, () => 1);
     mixInto(d, sweep(1.2, () => 110, () => 1, 0.5), 0.35);
     return normalize(d, 0.55);
+  },
+  // ---- character voices -----------------------------------------------------
+  yay: () => vocal([{ d: 0.1, f0: 430, f1: 470, v: 'i', v2: 'e', atk: 6 }, { d: 0.32, f0: 520, f1: 640, v: 'e', v2: 'a', curve: ease, tail: 1 }]),
+  ooh: () => vocal([{ d: 0.5, f0: 420, f1: 520, v: 'u', v2: 'o', curve: hump, tail: 1.2 }]),
+  mew: () => vocal([{ d: 0.3, f0: 640, f1: 520, v: 'i', v2: 'u', curve: ease, tail: 1 }]),
+  hehe: () => vocal([{ d: 0.11, f0: 560, f1: 600, v: 'e', breath: 0.25, gap: 0.05 }, { d: 0.11, f0: 600, f1: 640, v: 'e', breath: 0.25, gap: 0.05 }, { d: 0.14, f0: 640, f1: 560, v: 'i', v2: 'e', breath: 0.2 }]),
+  arf: () => vocal([{ d: 0.09, f0: 560, f1: 440, v: 'a', v2: 'o', atk: 8, tail: 1.6, breath: 0.12, gap: 0.08 }, { d: 0.1, f0: 600, f1: 470, v: 'a', v2: 'o', atk: 8, tail: 1.6, breath: 0.12 }]),
+  uhoh: () => vocal([{ d: 0.14, f0: 520, f1: 540, v: 'a', v2: 'o', gap: 0.05 }, { d: 0.24, f0: 400, f1: 380, v: 'o', tail: 1 }]),
+  mmm: () => vocal([{ d: 0.42, f0: 380, f1: 470, v: 'm', curve: hump, tail: 0.7, breath: 0.02 }, { d: 0.16, f0: 470, f1: 520, v: 'm', v2: 'a', tail: 1.2 }]),
+  wee: () => vocal([{ d: 0.5, f0: 480, f1: 760, v: 'u', v2: 'i', curve: ease, tail: 0.8 }]),
+  hmm: () => vocal([{ d: 0.34, f0: 360, f1: 480, v: 'm', v2: 'u', curve: (u) => u * u, tail: 0.5 }]),
+  aah: () => vocal([{ d: 0.6, f0: 420, f1: 560, v: 'a', curve: hump, tail: 1, wob: 4 }]),
+  lala: () => vocal([{ d: 0.16, f0: 520, f1: 520, v: 'a', atk: 6, gap: 0.02 }, { d: 0.16, f0: 620, f1: 620, v: 'a', atk: 6, gap: 0.02 }, { d: 0.26, f0: 700, f1: 660, v: 'a', atk: 6, tail: 1 }]),
+  oops: () => vocal([{ d: 0.12, f0: 560, f1: 600, v: 'u', atk: 8, gap: 0.04 }, { d: 0.18, f0: 470, f1: 380, v: 'u', v2: 'o', tail: 1.4, breath: 0.2 }]),
+  mwah: () => {
+    const d = vocal([{ d: 0.2, f0: 520, f1: 640, v: 'm', v2: 'a', tail: 1.4 }]);
+    mixInto(d, noiseBand(0.02, () => 3000, 2, () => 1), 0.4, 0.2);
+    return normalize(d, 0.7);
+  },
+  roar: () => vocal([{ d: 0.45, f0: 260, f1: 330, v: 'a', v2: 'o', curve: hump, wob: 9, breath: 0.18, tail: 1 }], { shift: 1 }),
+  snore: () => normalize(noiseBand(0.9, (u) => 300 + 200 * Math.sin(Math.PI * u), 3, (u) => Math.sin(Math.PI * u) ** 2), 0.3),
+  // ---- discovery, toys and adventure -----------------------------------------------
+  crack: () => {
+    const d = noiseBand(0.06, () => 2800, 1.5, expo(9));
+    mixInto(d, sweep(0.05, (u) => 900 - 300 * u, expo(8)), 0.4);
+    return normalize(d, 0.55);
+  },
+  shell: () => {
+    const d = new Float32Array(Math.floor(0.5 * SR));
+    for (let i = 0; i < 6; i++) mixInto(d, tone(1800 + Math.random() * 1600, 0.12, [[1, 1, 0.04], [2.3, 0.3, 0.02]]), 0.5 - i * 0.06, i * 0.06 + Math.random() * 0.03);
+    return normalize(d, 0.35);
+  },
+  rip: () => normalize(noiseBand(0.3, (u) => 1800 + 1400 * u, 0.7, (u) => (0.5 + 0.5 * Math.sin(u * 70)) * Math.sin(Math.PI * u)), 0.3),
+  crinkle: () => {
+    const d = new Float32Array(Math.floor(0.35 * SR));
+    for (let i = 0; i < 14; i++) mixInto(d, noiseBand(0.015, () => 2500 + Math.random() * 3000, 2, expo(6)), 0.4 + Math.random() * 0.5, Math.random() * 0.32);
+    return normalize(d, 0.3);
+  },
+  steam: () => normalize(noiseBand(0.7, (u) => 2200 + 1800 * u, 0.7, (u) => Math.min(1, u * 8) * Math.pow(1 - u, 1.5)), 0.22),
+  lid: () => {
+    const d = tone(420, 0.25, [[1, 1, 0.05], [2.4, 0.5, 0.03], [4.1, 0.2, 0.02]]);
+    mixInto(d, noiseBand(0.02, () => 1500, 1, () => 1), 0.2);
+    return normalize(d, 0.6);
+  },
+  jump: () => normalize(sweep(0.2, (u) => 300 + 520 * Math.pow(u, 0.6), (u) => Math.sin(Math.PI * Math.min(1, u * 1.15)), 0.15), 0.6),
+  jump2: () => normalize(sweep(0.24, (u) => 420 + 700 * Math.pow(u, 0.6), (u) => Math.sin(Math.PI * Math.min(1, u * 1.15)), 0.1), 0.55),
+  land: () => {
+    const d = sweep(0.1, (u) => 180 - 80 * u, expo(7), 0.2);
+    mixInto(d, noiseBand(0.05, () => 700, 1, expo(6)), 0.25);
+    return normalize(d, 0.55);
+  },
+  bounce: () => normalize(sweep(0.38, (u) => 200 + 600 * u + 40 * Math.sin(u * 60), (u) => Math.pow(1 - u, 1.2), 0.2), 0.6),
+  coin: () => {
+    const d = new Float32Array(Math.floor(0.45 * SR));
+    mixInto(d, tone(hz(88), 0.1, [[1, 1, 0.08], [2, 0.2, 0.04]]), 0.7);
+    mixInto(d, tone(hz(95), 0.35, [[1, 1, 0.2], [2, 0.2, 0.1]]), 0.9, 0.07);
+    return normalize(d, 0.45);
+  },
+  powerup: () => {
+    const d = new Float32Array(Math.floor(0.8 * SR));
+    [72, 76, 79, 84, 88, 91].forEach((m, i) => mixInto(d, tone(hz(m), 0.3, [[1, 1, 0.15], [2, 0.25, 0.08], [3, 0.08, 0.05]]), 0.6, i * 0.07));
+    return normalize(d, 0.5);
+  },
+  magic: () => {
+    const d = new Float32Array(Math.floor(1.1 * SR));
+    for (let i = 0; i < 12; i++) mixInto(d, tone(hz(84 + PENTA[i % 5] + 12 * Math.floor(i / 5)), 0.4, [[1, 1, 0.25], [2.01, 0.15, 0.1]]), 0.45 - i * 0.025, i * 0.045);
+    mixInto(d, noiseBand(1, (u) => 5000 + 2000 * u, 1, (u) => Math.sin(Math.PI * u) * 0.4), 0.08);
+    return normalize(d, 0.45);
+  },
+  wobble: () => normalize(sweep(0.5, (u) => 150 + 40 * Math.sin(u * 50) * (1 - u), (u) => Math.pow(1 - u, 1.4) * Math.min(1, u * 20), 0.3), 0.55),
+  stretch: () => normalize(sweep(0.4, (u) => 180 + 260 * u + 12 * Math.sin(u * 140), (u) => Math.sin(Math.PI * u) ** 0.8, 0.35), 0.38),
+  poof: () => normalize(noiseBand(0.35, (u) => 700 + 600 * (1 - u), 0.6, (u) => Math.min(1, u * 25) * Math.pow(1 - u, 2)), 0.42),
+  twinkle: () => normalize(tone(hz(96), 0.5, [[1, 1, 0.2], [2.4, 0.2, 0.08]]), 0.3),
+  found: () => {
+    const d = new Float32Array(Math.floor(0.9 * SR));
+    [79, 84, 88].forEach((m, i) => mixInto(d, tone(hz(m), 0.6, [[1, 1, 0.35], [2, 0.2, 0.2], [3, 0.06, 0.08]]), 0.6, i * 0.09));
+    return normalize(d, 0.5);
+  },
+  zip: () => normalize(sweep(0.16, (u) => 500 + 1600 * u, (u) => Math.sin(Math.PI * u), 0.05), 0.35),
+  splat: () => {
+    const d = noiseBand(0.22, (u) => 500 - 250 * u, 1.2, expo(6));
+    mixInto(d, sweep(0.12, (u) => 220 - 120 * u, expo(5)), 0.6);
+    return normalize(d, 0.55);
+  },
+  gulp: () => normalize(sweep(0.16, (u) => 260 + 260 * Math.sin(Math.PI * u), (u) => Math.sin(Math.PI * u), 0.2), 0.55),
+  squeak: () => normalize(sweep(0.14, (u) => 900 + 500 * Math.sin(Math.PI * u), (u) => Math.sin(Math.PI * u), 0.05), 0.4),
+  knock: () => {
+    const d = new Float32Array(Math.floor(0.3 * SR));
+    for (let i = 0; i < 2; i++) mixInto(d, tone(300, 0.08, [[1, 1, 0.03], [2.6, 0.4, 0.015]]), 1, i * 0.13);
+    return normalize(d, 0.6);
+  },
+  // soft percussion for the music
+  kick: () => normalize(sweep(0.22, (u) => 110 * Math.pow(0.45, u * 3) + 45, expo(6), 0.1), 0.9),
+  shaker: () => normalize(noiseBand(0.07, () => 6500, 0.8, (u) => Math.sin(Math.PI * Math.min(1, u * 1.6)) ** 2), 0.5),
+  snap: () => {
+    const d = noiseBand(0.05, () => 1900, 1.4, expo(9));
+    mixInto(d, sweep(0.03, () => 1200, expo(8)), 0.3);
+    return normalize(d, 0.6);
   },
   // Voices: tiny wordless creature chirps. Round sines, never harsh.
   coo: () => normalize(sweep(0.28, (u) => 620 + 180 * Math.sin(Math.PI * u * 0.9), (u) => Math.sin(Math.PI * u) ** 0.8, 0.12), 0.7),
@@ -390,6 +595,12 @@ class Audio {
     return this._play(this.buffers.get('i:' + inst), { rate: Math.pow(2, (midi - base) / 12), ...opts });
   }
 
+  /** Percussion and one-shots scheduled on the music bus */
+  hit(name, opts = {}) {
+    if (!this.running) return;
+    return this._play(this.buffers.get(name), { bus: this.musicBus, ...opts });
+  }
+
   /** Short rising shimmer: the universal "something nice happened" sound */
   sparkle(start = 0, count = 4, vol = 0.4) {
     if (!this.running) return;
@@ -560,3 +771,4 @@ class Audio {
 }
 
 export const audio = new Audio();
+export const __recipes = { SFX, INSTRUMENTS };
