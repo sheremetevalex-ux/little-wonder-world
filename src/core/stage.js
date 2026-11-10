@@ -4,7 +4,7 @@
 // studio: an image-based light for reflections, a warm key light with soft
 // shadows, a cool rim light that outlines every shape, and gentle tone mapping.
 import * as THREE from '../vendor/three.js';
-import { RoomEnvironment } from '../vendor/three.js';
+import { RoomEnvironment, mergeGeometries } from '../vendor/three.js';
 
 export { THREE };
 
@@ -38,7 +38,7 @@ export function resizeGL(app) {
   if (!r) return;
   const vw = app.W * app.scale, vh = app.H * app.scale;
   // Retina is wasted on soft shapes: cap the 3D layer lower than the 2D one
-  const pr = Math.min(window.devicePixelRatio || 1, 2) * Math.min(1, app.quality + 0.05);
+  const pr = Math.min(window.devicePixelRatio || 1, 1.5) * Math.max(0.6, Math.min(1, app.quality));
   if (vw === gl.w && vh === gl.h && pr === gl.pr) return;
   gl.w = vw; gl.h = vh; gl.pr = pr;
   r.setPixelRatio(pr);
@@ -60,6 +60,30 @@ export function lighten(c, t) { return tmpC.set(c).lerp(new THREE.Color('#ffffff
 export function darken(c, t) { return tmpC.set(c).lerp(new THREE.Color('#3A2060'), t).getHex(); }
 
 // ---- materials -------------------------------------------------------------------
+// Physically based "standard" shading only: clear-coat, sheen and above all real
+// transmission (which draws the whole scene a second time every frame) are far too
+// heavy for a tablet at retina size. PM() takes the rich recipe and turns it into
+// a close look-alike: gloss from lower roughness and stronger reflections, jelly
+// from a little transparency and a soft inner glow.
+const PHYS = ['clearcoat', 'clearcoatRoughness', 'sheen', 'sheenRoughness', 'sheenColor', 'transmission', 'thickness', 'ior', 'attenuationColor', 'attenuationDistance', 'iridescence', 'iridescenceIOR', 'iridescenceThicknessMinimum', 'iridescenceThicknessMaximum', 'specularIntensity', 'specularColor', 'dispersion', 'anisotropy'];
+export function PM(p = {}) {
+  const q = { ...p };
+  const trans = p.transmission || 0, cc = p.clearcoat || 0, sh = p.sheen || 0;
+  for (const k of PHYS) delete q[k];
+  if (trans > 0) {
+    q.transparent = true;
+    q.opacity = Math.min(q.opacity ?? 1, 1 - trans * 0.3);
+    q.roughness = Math.min(q.roughness ?? 0.2, 0.18);
+    if (p.attenuationColor) { q.emissive = p.attenuationColor; q.emissiveIntensity = 0.18; }
+    q.envMapIntensity = (q.envMapIntensity ?? 1) * 1.25;
+  }
+  if (cc > 0) {
+    q.roughness = (q.roughness ?? 0.5) * (1 - cc * 0.4);
+    q.envMapIntensity = (q.envMapIntensity ?? 1) * (1 + cc * 0.3);
+  }
+  if (sh > 0) q.roughness = Math.min(1, (q.roughness ?? 0.6) + 0.08 * sh);
+  return new THREE.MeshStandardMaterial(q);
+}
 const matCache = new Map();
 function cached(key, make) {
   let m = matCache.get(key);
@@ -68,29 +92,29 @@ function cached(key, make) {
 }
 export const M = {
   /** Glossy vinyl: the default toy surface */
-  toy: (color, o = {}) => cached('toy' + color + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({
+  toy: (color, o = {}) => cached('toy' + color + JSON.stringify(o), () => PM({
     color, roughness: 0.42, clearcoat: 0.55, clearcoatRoughness: 0.28, envMapIntensity: 0.9, ...o
   })),
   /** Candy-hard shine: buttons, gems, eyes */
-  glossy: (color, o = {}) => cached('gl' + color + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({
+  glossy: (color, o = {}) => cached('gl' + color + JSON.stringify(o), () => PM({
     color, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.1, ...o
   })),
   /** Soft velvet for plush toys and dough */
-  plush: (color, o = {}) => cached('pl' + color + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({
+  plush: (color, o = {}) => cached('pl' + color + JSON.stringify(o), () => PM({
     color, roughness: 0.82, sheen: 1, sheenRoughness: 0.45, sheenColor: new THREE.Color(lighten(color, 0.6)), envMapIntensity: 0.7, ...o
   })),
   matte: (color, o = {}) => cached('mt' + color + JSON.stringify(o), () => new THREE.MeshStandardMaterial({ color, roughness: 0.85, envMapIntensity: 0.6, ...o })),
   /** Jelly and gummy: light passes through and tints */
-  jelly: (color, o = {}) => cached('je' + color + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({
+  jelly: (color, o = {}) => cached('je' + color + JSON.stringify(o), () => PM({
     color: lighten(color, 0.25), roughness: 0.12, transmission: 0.82, thickness: 1.4, ior: 1.33,
     attenuationColor: new THREE.Color(color), attenuationDistance: 1.1, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.1, ...o
   })),
   /** Soap-bubble skin: transparent with a rainbow sheen */
-  bubble: (o = {}) => cached('bb' + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({
+  bubble: (o = {}) => cached('bb' + JSON.stringify(o), () => PM({
     color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.22, iridescence: 1, iridescenceIOR: 1.35,
     iridescenceThicknessMinimum: 180, iridescenceThicknessMaximum: 620, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.6, depthWrite: false, ...o
   })),
-  metal: (color, o = {}) => cached('me' + color + JSON.stringify(o), () => new THREE.MeshPhysicalMaterial({ color, metalness: 1, roughness: 0.25, envMapIntensity: 1.2, ...o })),
+  metal: (color, o = {}) => cached('me' + color + JSON.stringify(o), () => PM({ color, metalness: 1, roughness: 0.25, envMapIntensity: 1.2, ...o })),
   basic: (color, o = {}) => cached('ba' + color + JSON.stringify(o), () => new THREE.MeshBasicMaterial({ color, ...o })),
   glow: (color, o = {}) => cached('gw' + color + JSON.stringify(o), () => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, ...o }))
 };
@@ -103,19 +127,19 @@ export function geo(key, make) {
   return g;
 }
 export const G = {
-  sphere: (seg = 32) => geo('sph' + seg, () => new THREE.SphereGeometry(1, seg, Math.round(seg * 0.75))),
+  sphere: (seg = 32) => { seg = Math.max(8, Math.round(seg * 0.62)); return geo('sph' + seg, () => new THREE.SphereGeometry(1, seg, Math.max(6, Math.round(seg * 0.7)))); },
   box: (r = 0.12, seg = 3) => geo('rbox' + r + ':' + seg, () => new THREE.RoundedBoxGeometry(1, 1, 1, seg, r)),
   cyl: (seg = 32, top = 1) => geo('cyl' + seg + ':' + top, () => new THREE.CylinderGeometry(top, 1, 1, seg, 1)),
   cone: (seg = 24) => geo('cone' + seg, () => new THREE.ConeGeometry(1, 1, seg)),
   capsule: (len = 1, seg = 16) => geo('cap' + len + ':' + seg, () => new THREE.CapsuleGeometry(1, len, 8, seg)),
-  torus: (tube = 0.3, arc = Math.PI * 2, seg = 32) => geo('tor' + tube + ':' + arc + ':' + seg, () => new THREE.TorusGeometry(1, tube, 12, seg, arc)),
+  torus: (tube = 0.3, arc = Math.PI * 2, seg = 32) => geo('tor' + tube + ':' + arc + ':' + seg, () => new THREE.TorusGeometry(1, tube, 8, Math.max(10, Math.round(seg * 0.7)), arc)),
   plane: () => geo('plane', () => new THREE.PlaneGeometry(1, 1)),
   circle: (seg = 40) => geo('circ' + seg, () => new THREE.CircleGeometry(1, seg)),
   /** A rounded cylinder: cushions, cake tiers, buttons */
   puck: (bevel = 0.25, seg = 40) => geo('puck' + bevel + ':' + seg, () => lathe(puckProfile(bevel), seg)),
   /** Puffy extruded outline, like a pillow: stars, hearts, clouds */
   puffy: (key, shape, depth = 0.35, bevel = 0.22) => geo('puffy' + key + depth + bevel, () => {
-    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.85, bevelSegments: 6, curveSegments: 20 });
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.85, bevelSegments: 3, curveSegments: 12 });
     g.center();
     g.computeVertexNormals();
     return g;
@@ -184,6 +208,56 @@ export function group(parent, p) {
   if (p) g.position.set(p[0], p[1], p[2]);
   if (parent) parent.add(g);
   return g;
+}
+
+// ---- baking: many small static parts become one mesh per material ------------------
+/**
+ * Every mesh under root (except inside the `keep` subtrees, or marked
+ * userData.live) is merged into one mesh per material, in root's own space.
+ * A toy built from forty little spheres then costs a handful of draw calls.
+ */
+export function bake(root, keep = []) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const skip = new Set(keep.filter(Boolean));
+  const buckets = new Map();
+  const m4 = new THREE.Matrix4();
+  const walk = (o) => {
+    if (skip.has(o) || o.userData.live || !o.visible) return;
+    for (const ch of o.children) walk(ch);
+    if (o === root || !o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || o.userData.critter) return;
+    m4.multiplyMatrices(inv, o.matrixWorld);
+    if (m4.determinant() <= 0) return;
+    const key = o.material.uuid + (o.castShadow ? 'c' : '') + (o.receiveShadow ? 'r' : '') + ':' + o.renderOrder;
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { mat: o.material, cast: o.castShadow, rec: o.receiveShadow, order: o.renderOrder, list: [] }));
+    b.list.push({ o, m: m4.clone() });
+  };
+  walk(root);
+  for (const b of buckets.values()) {
+    if (b.list.length < 2) continue;
+    const geos = b.list.map(({ o, m }) => {
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      if (!g.attributes.normal) g.computeVertexNormals();
+      g.morphAttributes = {};
+      g.clearGroups();
+      g.applyMatrix4(m);
+      return g;
+    });
+    const merged = mergeGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+    if (!merged) continue;
+    merged.userData.baked = true;
+    const me = new THREE.Mesh(merged, b.mat);
+    me.castShadow = b.cast;
+    me.receiveShadow = b.rec;
+    me.renderOrder = b.order;
+    for (const { o } of b.list) o.parent.remove(o);
+    root.add(me);
+  }
+  return root;
 }
 
 // ---- soft contact shadow: grounds every toy even where the shadow map is coarse ----
@@ -266,10 +340,11 @@ export class Stage {
     s.add(this.hemi);
     const k = this.key = new THREE.DirectionalLight(o.keyColor, o.key);
     k.position.set(...o.keyPos);
+    o.shadowSize = Math.min(o.shadowSize, 1024);
     k.castShadow = o.shadowSize > 0;
     if (k.castShadow) {
       k.shadow.mapSize.set(o.shadowSize, o.shadowSize);
-      k.shadow.radius = 5;
+      k.shadow.radius = 3;
       k.shadow.bias = -0.0006;
       k.shadow.normalBias = 0.02;
       this.shadowArea(o.shadowArea);

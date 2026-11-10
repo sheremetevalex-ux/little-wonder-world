@@ -10,7 +10,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, PM, bake } from '../core/stage.js';
 import { Critter } from '../art/critter3d.js';
 
 const ROOMS = ['bath', 'food', 'bed'];
@@ -151,9 +151,10 @@ export const pet = {
     // bathroom: a big tub full of water and bubbles
     const tub = this.tub = group(W, [ROOM_X.bath, 0, 0]);
     mesh(G.puck(0.35), M.glossy('#FFFFFF'), { p: [0, 0.75, 0], s: [2.5, 1.5, 1.5], parent: tub });
-    this.water = mesh(G.cyl(40), new THREE.MeshPhysicalMaterial({ color: '#8FDCFF', roughness: 0.05, transmission: 0.5, thickness: 0.5, transparent: true, opacity: 0.85, clearcoat: 1 }), { p: [0, 1.35, 0], s: [2.3, 0.05, 1.3], parent: tub, cast: false });
+    this.water = mesh(G.cyl(40), PM({ color: '#8FDCFF', roughness: 0.05, transmission: 0.5, thickness: 0.5, transparent: true, opacity: 0.85, clearcoat: 1 }), { p: [0, 1.35, 0], s: [2.3, 0.05, 1.3], parent: tub, cast: false });
     for (let i = 0; i < 18; i++) mesh(G.sphere(12), M.bubble({ opacity: 0.5 }), { p: [rand(-2, 2), 1.42, rand(-1.1, 1.1)], s: rand(0.15, 0.32), parent: tub, cast: false });
     for (const k of [-1, 1]) mesh(G.sphere(12), M.metal('#FFC93C'), { p: [k * 2.1, 0.12, 0.9], s: [0.18, 0.15, 0.18], parent: tub, cast: false });
+    bake(tub);
     this.duckToy = makeTool('duck');
     this.duckToy.position.set(1.4, 1.5, 0.7);
     tub.add(this.duckToy);
@@ -166,6 +167,7 @@ export const pet = {
     mesh(G.puck(0.2), new THREE.MeshStandardMaterial({ map: checkTex(), roughness: 0.8 }), { p: [0, 1.25, 0], s: [2.6, 0.12, 1.4], parent: table, receive: true });
     for (const x of [-1.8, 1.8]) mesh(G.cyl(10), M.toy('#E0A87C'), { p: [x, 0.6, 0], s: [0.14, 1.2, 0.14], parent: table });
     mesh(G.puck(0.4), M.glossy('#FFFFFF'), { p: [0, 1.36, 0.4], s: [1.6, 0.08, 0.7], parent: table, receive: true });
+    bake(table);
     // shelves with jars
     for (let i = 0; i < 4; i++) mesh(G.cyl(16), M.glossy(['#FF8FC0', '#FFE066', '#9FE8A8', '#8FD0FF'][i], { transparent: true, opacity: 0.8 }), { p: [ROOM_X.food - 4 + i * 0.7, 4.3, -3.6], s: [0.25, 0.5, 0.25], parent: W });
     mesh(G.box(0.05), M.toy('#E0A87C'), { p: [ROOM_X.food - 2.95, 4.0, -3.6], s: [3.2, 0.12, 0.6], parent: W });
@@ -175,7 +177,8 @@ export const pet = {
     mesh(G.box(0.3), M.plush('#E6DAFF'), { p: [0, 0.6, 0], s: [3.4, 0.8, 2.6], parent: bed, receive: true });
     mesh(G.box(0.4), M.plush('#FFFFFF'), { p: [0, 1.15, -0.85], s: [1.8, 0.4, 0.7], parent: bed, receive: true });
     this.blanket = group(bed, [0, 1.05, 1.25]);
-    mesh(G.box(0.15), new THREE.MeshPhysicalMaterial({ map: starsTex(), roughness: 0.85, sheen: 1, sheenColor: new THREE.Color('#ffffff') }), { p: [0, 0, -0.85], s: [3.5, 0.22, 1.8], parent: this.blanket });
+    mesh(G.box(0.15), PM({ map: starsTex(), roughness: 0.85, sheen: 1, sheenColor: new THREE.Color('#ffffff') }), { p: [0, 0, -0.85], s: [3.5, 0.22, 1.8], parent: this.blanket });
+    bake(bed, [this.blanket]);
     this.blanketK = 0;
     this.lampG = group(W, [ROOM_X.bed + 3.4, 0, -0.6]);
     mesh(G.box(0.1), M.toy('#FFFFFF'), { p: [0, 0.6, 0], s: [0.9, 1.2, 0.9], parent: this.lampG });
@@ -191,6 +194,7 @@ export const pet = {
     mesh(G.plane(), M.basic('#1C1A58'), { p: [0, 0, 0.11], s: [2.1, 2.5, 1], parent: win, cast: false });
     mesh(G.sphere(16), M.basic('#FFF3C4'), { p: [0.5, 0.6, 0.15], s: 0.3, parent: win, cast: false });
     for (let i = 0; i < 9; i++) mesh(G.sphere(6), M.basic('#FFF8D8'), { p: [rand(-0.9, 0.9), rand(-1.1, 1.1), 0.14], s: 0.04, parent: win, cast: false });
+    bake(win);
     // the mobile of stars above the bed
     this.mobileG = group(W, [ROOM_X.bed, 5.2, 0.2]);
     mesh(G.torus(0.04, TAU, 32), M.toy('#FFFFFF'), { r: [Math.PI / 2, 0, 0], s: 1, parent: this.mobileG, cast: false });
@@ -199,6 +203,7 @@ export const pet = {
       mesh(G.cyl(4), M.basic('#FFFFFF'), { p: [Math.cos(a), -0.4, Math.sin(a)], s: [0.01, 0.8, 0.01], parent: this.mobileG, cast: false });
       mesh(G.puffy('mstar', starShape(5, 1, 0.5), 0.3, 0.15), M.glossy(['#FFD45C', '#FF8FC0', '#8FD0FF', '#B48BFF', '#9FE8A8'][i], { emissive: '#FFE680', emissiveIntensity: 0.2 }), { p: [Math.cos(a), -0.85, Math.sin(a)], s: 0.2, parent: this.mobileG, cast: false });
     }
+    bake(this.mobileG);
     this.mobileSpin = new Spring(0, 20, 1.2);
     // night sky stars that appear on the ceiling and walls when the lamp goes off
     const sg = new THREE.BufferGeometry(), sp = new Float32Array(240);
@@ -382,8 +387,8 @@ export const pet = {
     c.body.scale.set(c.rx * (1 + this.belly * 0.12), c.ry, c.rz * (1 + this.belly * 0.18));
     if (this.shiver > 0) { this.shiver -= dt; c.root.position.x = this.petBase.x + Math.sin(t * 55) * 0.04 * clamp(this.shiver); }
     // wet fur shines
-    c.bodyMat.clearcoat = 0.45 + this.wet * 0.55;
-    c.bodyMat.roughness = 0.48 - this.wet * 0.35;
+    c.bodyMat.roughness = 0.42 - this.wet * 0.32;
+    c.bodyMat.envMapIntensity = 0.85 + this.wet * 0.6;
     for (const f of this.foam) { f.k = Math.min(1, f.k + dt * 6); f.m.scale.setScalar(f.s * f.k * (1 + Math.sin(t * 3 + f.s * 20) * 0.04)); }
     // shower water
     if (this.room === 'bath') this.stepShower(dt);

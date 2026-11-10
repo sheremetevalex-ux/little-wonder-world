@@ -1,6 +1,6 @@
 // Little 3D toys that stand for each world in the hub: one glance says what is
 // inside. Each fits in a ball of radius 1 around its origin, facing +z.
-import { THREE, M, G, mesh, group, lathe, starShape, heartShape, lighten, darken } from '../core/stage.js';
+import { THREE, M, G, mesh, group, lathe, starShape, heartShape, lighten, darken, PM } from '../core/stage.js';
 
 const PI = Math.PI;
 const nc = { cast: false };
@@ -99,7 +99,7 @@ const BUILDERS = {
   },
   quest(g) {
     const tex = stripeTex();
-    const bm = new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.4, clearcoat: 0.5 });
+    const bm = PM({ map: tex, roughness: 0.4, clearcoat: 0.5 });
     mesh(G.sphere(32), bm, { p: [0, 0.22, 0], s: [0.62, 0.7, 0.62], parent: g });
     mesh(G.cone(16), M.toy('#FF6F9B'), { p: [0, -0.5, 0], r: [PI, 0, 0], s: [0.25, 0.25, 0.25], parent: g, ...nc });
     mesh(G.box(0.08), M.toy('#C98A52'), { p: [0, -0.68, 0], s: [0.34, 0.24, 0.34], parent: g });
@@ -156,7 +156,7 @@ const BUILDERS = {
   },
   eggs(g) {
     const tex = eggTex('#B9A4FF', '#FFE27D', '#FF9FD0');
-    mesh(eggShape(), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1, emissive: '#5A3FD0', emissiveIntensity: 0.08 }), { s: [0.78, 0.82, 0.78], parent: g });
+    mesh(eggShape(), PM({ map: tex, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1, emissive: '#5A3FD0', emissiveIntensity: 0.08 }), { s: [0.78, 0.82, 0.78], parent: g });
     for (let i = 0; i < 5; i++) {
       const a = i * 1.3;
       mesh(G.puffy('star4', starShape(4, 1, 0.38), 0.2, 0.1), M.glow('#FFF2A8', { opacity: 0.9 }), { p: [Math.cos(a) * 0.8, Math.sin(a) * 0.75, 0.25], s: 0.07 + (i % 2) * 0.04, parent: g, ...nc });

@@ -9,7 +9,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart, mix as mixCol, light } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, heartShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, heartShape, PM, bake } from '../core/stage.js';
 import { Critter } from '../art/critter3d.js';
 import { FRIENDS } from '../art/creatures.js';
 
@@ -106,7 +106,7 @@ export const cake = {
 
   buildKitchen() {
     const W = this.world;
-    mesh(G.box(0.2), new THREE.MeshPhysicalMaterial({ color: '#BFEFD8', roughness: 0.4, clearcoat: 0.5 }), { p: [0, -0.4, 0], s: [24, 0.8, 9], receive: true, parent: W });
+    mesh(G.box(0.2), PM({ color: '#BFEFD8', roughness: 0.4, clearcoat: 0.5 }), { p: [0, -0.4, 0], s: [24, 0.8, 9], receive: true, parent: W });
     mesh(G.box(0.1), M.toy('#FFB3CF'), { p: [0, -0.85, 4.4], s: [24, 0.9, 0.3], parent: W, cast: false });
     const wall = canvasTex(256, 256, (x, w, h) => {
       x.fillStyle = '#FFF3E4'; x.fillRect(0, 0, w, h);
@@ -117,7 +117,9 @@ export const cake = {
     mesh(G.plane(), new THREE.MeshStandardMaterial({ map: wall, roughness: 0.9 }), { p: [0, 6, -4.4], s: [60, 14, 1], receive: true, cast: false, parent: W });
     // bunting garland
     const cols = ['#FF6F91', '#FFE066', '#7FD86F', '#5FB8FF', '#B48BFF'];
-    for (let i = 0; i < 18; i++) mesh(G.cone(3), M.toy(cols[i % 5]), { p: [(i - 8.5) * 1.1, 6.6 - Math.sin((i / 17) * Math.PI) * 0.6, -4.2], r: [Math.PI, 0, 0], s: [0.4, 0.6, 0.06], parent: W, cast: false });
+    const bunting = group(W);
+    for (let i = 0; i < 18; i++) mesh(G.cone(3), M.toy(cols[i % 5]), { p: [(i - 8.5) * 1.1, 6.6 - Math.sin((i / 17) * Math.PI) * 0.6, -4.2], r: [Math.PI, 0, 0], s: [0.4, 0.6, 0.06], parent: bunting, cast: false });
+    bake(bunting);
     // the bowl
     const bowl = this.bowl = group(W, [0, 0, -0.4]);
     const prof = [new THREE.Vector2(0.001, 0), new THREE.Vector2(0.8, 0.04), new THREE.Vector2(1.45, 0.6), new THREE.Vector2(1.65, 1.35), new THREE.Vector2(1.55, 1.38), new THREE.Vector2(1.32, 0.68), new THREE.Vector2(0.7, 0.16), new THREE.Vector2(0.001, 0.14)];
@@ -125,28 +127,32 @@ export const cake = {
     bg.computeVertexNormals();
     mesh(bg, M.glossy('#E9F0FF', { side: THREE.DoubleSide }), { parent: bowl });
     for (let i = 0; i < 6; i++) mesh(G.puffy('bheart', heartShape(1), 0.1, 0.05), M.glossy('#FF8FC0'), { p: [Math.sin(i * 0.5 - 1.25) * 1.5, 0.75, Math.cos(i * 0.5 - 1.25) * 1.5], r: [0, i * 0.5 - 1.25, 0], s: 0.09, parent: bowl, cast: false });
-    this.batterM = new THREE.MeshPhysicalMaterial({ color: '#FFE9C2', roughness: 0.35, clearcoat: 0.5 });
+    this.batterM = PM({ color: '#FFE9C2', roughness: 0.35, clearcoat: 0.5 });
     this.batterMesh = mesh(G.sphere(40), this.batterM, { p: [0, 0.2, 0], s: [0.1, 0.1, 0.1], parent: bowl, cast: false });
     this.swirl = mesh(G.torus(0.06, TAU * 2, 64), new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.5 }), { r: [Math.PI / 2, 0, 0], s: 0.6, parent: bowl, cast: false });
     this.swirl.visible = false;
     this.whisk = group(W);
     mesh(G.cyl(8), M.toy('#FF8FC0'), { p: [0, 1.0, 0], s: [0.08, 1.2, 0.08], parent: this.whisk });
     for (let i = 0; i < 4; i++) mesh(G.torus(0.04, TAU, 20), M.metal('#E8E8F0'), { p: [0, 0.2, 0], r: [0, (i / 4) * Math.PI, 0], s: [0.25, 0.42, 0.25], parent: this.whisk, cast: false });
+    bake(this.whisk);
+    bake(bowl, [this.batterMesh, this.swirl]);
     this.whisk.visible = false;
     this.bowlSq = new Spring(1, 300, 9);
     // the oven
     const ov = this.oven = group(W, [7, 0, -1.6]);
     mesh(G.box(0.3), M.toy('#FF8FB8'), { p: [0, 1.6, 0], s: [3.2, 3.2, 2.4], parent: ov });
-    this.ovenWin = mesh(G.box(0.1), new THREE.MeshPhysicalMaterial({ color: '#3A2050', roughness: 0.1, clearcoat: 1, emissive: '#FF9F43', emissiveIntensity: 0 }), { p: [0, 1.4, 1.2], s: [2.2, 1.6, 0.1], parent: ov });
+    this.ovenWin = mesh(G.box(0.1), PM({ color: '#3A2050', roughness: 0.1, clearcoat: 1, emissive: '#FF9F43', emissiveIntensity: 0 }), { p: [0, 1.4, 1.2], s: [2.2, 1.6, 0.1], parent: ov });
     for (let i = 0; i < 3; i++) mesh(G.cyl(12), M.glossy('#FFFFFF'), { p: [-0.8 + i * 0.8, 2.85, 1.22], r: [Math.PI / 2, 0, 0], s: [0.16, 0.1, 0.16], parent: ov, cast: false });
     mesh(G.capsule(1, 8), M.metal('#E8E8F0'), { p: [0, 2.35, 1.3], r: [0, 0, Math.PI / 2], s: [0.07, 0.8, 0.07], parent: ov, cast: false });
     this.ovenLight = new THREE.PointLight('#FFB060', 0, 6, 1.5);
     this.ovenLight.position.set(0, 1.4, 1.6);
     ov.add(this.ovenLight);
+    bake(ov, [this.ovenWin]);
     // the cake stand
     const stand = this.stand = group(W, [0, 0, -0.2]);
     mesh(G.cyl(24, 0.5), M.glossy('#FFFFFF'), { p: [0, 0.35, 0], s: [0.5, 0.7, 0.5], parent: stand });
     mesh(G.puck(0.3), M.glossy('#FFFFFF'), { p: [0, 0.75, 0], s: [1.9, 0.12, 1.9], parent: stand, receive: true });
+    bake(stand);
     stand.visible = false;
   },
 
@@ -186,6 +192,7 @@ export const cake = {
       const row = Math.floor(i / cols), col = i % cols;
       const sp = this.wide ? 1.5 : 1.25;
       const home = V((col - (Math.min(cols, n) - 1) / 2) * sp + (row ? sp * 0.5 : 0), 0.4, 1.9 + row * 1.0);
+      bake(g);
       g.position.copy(home);
       g.scale.setScalar(1.45);
       this.world.add(g);
@@ -280,11 +287,11 @@ export const cake = {
     const H = 0.9;
     const body = new THREE.ExtrudeGeometry(sh, { depth: H, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.1, bevelSegments: 5, curveSegments: 32 });
     body.rotateX(-Math.PI / 2);
-    this.cakeBody = mesh(body, new THREE.MeshPhysicalMaterial({ color: this.batter, roughness: 0.7, sheen: 0.5, sheenColor: new THREE.Color('#FFF4E0') }), { parent: g });
+    this.cakeBody = mesh(body, PM({ color: this.batter, roughness: 0.7, sheen: 0.5, sheenColor: new THREE.Color('#FFF4E0') }), { parent: g });
     // a soft frosting cap with drips
     const cap = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 4, curveSegments: 32 });
     cap.rotateX(-Math.PI / 2);
-    this.capM = new THREE.MeshPhysicalMaterial({ color: '#FFF8F0', roughness: 0.35, clearcoat: 0.6 });
+    this.capM = PM({ color: '#FFF8F0', roughness: 0.35, clearcoat: 0.6 });
     mesh(cap, this.capM, { p: [0, H + 0.04, 0], s: [1.02, 1, 1.02], parent: g });
     const pts = sh.getSpacedPoints(26);
     for (let i = 0; i < pts.length - 1; i++) {
@@ -304,10 +311,11 @@ export const cake = {
     const B = 1.6;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) + B) / (2 * B), (pos.getY(i) + B) / (2 * B));
     top.rotateX(-Math.PI / 2);
-    this.topMesh = mesh(top, new THREE.MeshPhysicalMaterial({ map: this.topTex, roughness: 0.4, clearcoat: 0.5 }), { p: [0, H + 0.205, 0], s: [1.03, 1, 1.03], parent: g, cast: false });
+    this.topMesh = mesh(top, PM({ map: this.topTex, roughness: 0.4, clearcoat: 0.5 }), { p: [0, H + 0.205, 0], s: [1.03, 1, 1.03], parent: g, cast: false });
     this.topY = H + 0.21;
     this.toppers = [];
     this.candles = [];
+    bake(g, [this.topMesh]);
     this.world.add(g);
     g.scale.set(1, k, 1);
   },
@@ -411,7 +419,7 @@ export const cake = {
         if (this.candles.length >= 8) return;
         const g = group(this.cakeG, [local.x, this.topY, local.z]);
         const col = pick(['#FF8FC4', '#7FD6FF', '#FFD45C', '#B48BFF']);
-        mesh(G.cyl(12), new THREE.MeshPhysicalMaterial({ map: candleTex(col), roughness: 0.4 }), { p: [0, 0.3, 0], s: [0.06, 0.6, 0.06], parent: g });
+        mesh(G.cyl(12), PM({ map: candleTex(col), roughness: 0.4 }), { p: [0, 0.3, 0], s: [0.06, 0.6, 0.06], parent: g });
         const flame = mesh(G.sphere(12), new THREE.MeshBasicMaterial({ color: '#FFD45C' }), { p: [0, 0.72, 0], s: [0.06, 0.11, 0.06], parent: g, cast: false });
         mesh(G.sphere(10), M.glow('#FFC233', { opacity: 0.4 }), { s: 2.2, parent: flame, cast: false });
         g.scale.setScalar(0.01);
@@ -489,7 +497,7 @@ export const cake = {
     hint.clear();
     const g = this.guests[this.slices % this.guests.length];
     // a slice flies to a friend, and the cake gets smaller
-    const piece = mesh(G.box(0.08), new THREE.MeshPhysicalMaterial({ color: this.batter, roughness: 0.7 }), { s: [0.45, 0.4, 0.45], parent: this.world, cast: false });
+    const piece = mesh(G.box(0.08), PM({ color: this.batter, roughness: 0.7 }), { s: [0.45, 0.4, 0.45], parent: this.world, cast: false });
     mesh(G.box(0.05), this.capM, { p: [0, 0.6, 0], s: [1.02, 0.25, 1.02], parent: piece, cast: false });
     piece.position.copy(this.cakeG.localToWorld(V(rand(-0.3, 0.3), this.topY * 0.5, rand(-0.3, 0.3))));
     const to = g.c.mouth.getWorldPosition(V());
@@ -664,6 +672,8 @@ export const cake = {
   },
 
   up(p) {
+    // sprinkles pile up as many tiny meshes: fold them into the cake now and then
+    if (this.step === 'decorate' && this.cakeG) bake(this.cakeG, [this.topMesh, ...this.toppers, ...this.candles.map((q) => q.g)]);
     if (p.item) {
       const it = p.item;
       it.held = false;

@@ -8,7 +8,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rand, pick, dist, clamp, TAU } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, canvasTex } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, canvasTex, bake } from '../core/stage.js';
 import { Critter } from '../art/critter3d.js';
 
 const COLS = 6, ROWS = 5;
@@ -41,6 +41,9 @@ function makeFlower(row) {
     mesh(G.sphere(6), M.basic('#FFFFFF'), { p: [k * 0.075 - 0.01, 0.015, 0.02], s: 0.012, parent: eyes, cast: false });
   }
   const mouth = mesh(G.sphere(12), M.glossy('#7A2C50'), { p: [0, -0.06, 0.11], s: [0.04, 0.01, 0.02], parent: head, cast: false });
+  bake(petals);
+  bake(head, [petals, mouth]);
+  bake(g, [head]);
   return { g, head, petals, mouth };
 }
 
@@ -94,10 +97,14 @@ export const garden = {
     mesh(G.box(0.15), M.toy('#C98A52', { roughness: 0.7 }), { p: [0, 0.25, 0], s: [bw + 0.3, 0.5, bd + 0.3], parent: W, receive: true });
     mesh(G.box(0.2), new THREE.MeshStandardMaterial({ map: soilTex(), roughness: 1 }), { p: [0, 0.3, 0], s: [bw - 0.1, 0.52, bd - 0.1], parent: W, receive: true });
     // little planting holes
-    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) mesh(G.circle(16), M.basic('#5A3A28', { transparent: true, opacity: 0.35 }), { p: [this.colX(c), 0.565, this.rowZ(r)], r: [-Math.PI / 2, 0, 0], s: 0.18, parent: W, cast: false });
+    const holes = group(W);
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) mesh(G.circle(16), M.basic('#5A3A28', { transparent: true, opacity: 0.35 }), { p: [this.colX(c), 0.565, this.rowZ(r)], r: [-Math.PI / 2, 0, 0], s: 0.18, parent: holes, cast: false });
+    bake(holes);
     // a fence, trees and a tiny shed for cosiness
-    for (let i = 0; i < 22; i++) mesh(G.box(0.05), M.toy('#FFFFFF'), { p: [(i - 10.5) * 0.9, 0.5, -5], s: [0.18, 1, 0.1], parent: W });
-    mesh(G.box(0.03), M.toy('#FFFFFF'), { p: [0, 0.7, -4.95], s: [20, 0.12, 0.08], parent: W, cast: false });
+    const fence = group(W);
+    for (let i = 0; i < 22; i++) mesh(G.box(0.05), M.toy('#FFFFFF'), { p: [(i - 10.5) * 0.9, 0.5, -5], s: [0.18, 1, 0.1], parent: fence });
+    mesh(G.box(0.03), M.toy('#FFFFFF'), { p: [0, 0.7, -4.95], s: [20, 0.12, 0.08], parent: fence, cast: false });
+    bake(fence);
     for (const [x, z, col] of [[-8, -7, '#6CCB76'], [7.5, -7.5, '#FF9FC6'], [-11, -4, '#86D96E'], [11, -3.5, '#6CCB76']]) {
       const t = group(W, [x, 0, z]);
       mesh(G.cyl(10), M.toy('#B9825A'), { p: [0, 1.2, 0], s: [0.3, 2.4, 0.3], parent: t });

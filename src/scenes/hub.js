@@ -8,7 +8,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rand, pick, dist, clamp, lerp, heart, TAU } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, skyTexture, blobShadow, starShape, heartShape, canvasTex, lighten } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, skyTexture, blobShadow, starShape, heartShape, canvasTex, lighten, PM, bake } from '../core/stage.js';
 import { skyByClock } from '../art/world.js';
 import { FRIENDS, FRIEND_IDS } from '../art/creatures.js';
 import { Critter } from '../art/critter3d.js';
@@ -218,6 +218,7 @@ export const hub = {
       mesh(G.sphere(16), M.toy(lighten(col, 0.15), { roughness: 0.55 }), { p: [s * 0.55, s * 1.25, s * 0.2], s: s * 0.55, parent: t, cast: false });
       t.userData.ph = rand(TAU);
       t.userData.sq = new Spring(1, 200, 6);
+      bake(t);
       this.trees.push(t);
     }
     // scattered little flowers (instanced)
@@ -241,6 +242,7 @@ export const hub = {
       const n = 5;
       for (let k = 0; k < n; k++) mesh(G.sphere(20), cm, { p: [(k - 2) * 2.4 + rand(-0.5, 0.5), Math.sin((k / (n - 1)) * Math.PI) * 1.6, rand(-0.5, 0.5)], s: 2.2 + Math.sin((k / (n - 1)) * Math.PI) * 1.4, parent: cl, cast: false });
       cl.userData = { v: rand(0.6, 1.4), sq: new Spring(1, 180, 6) };
+      bake(cl);
       cl.scale.setScalar(rand(0.8, 1.3));
       this.clouds.push(cl);
     }
@@ -312,6 +314,8 @@ export const hub = {
       inner.add(toy);
     }
     toy.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    if (!crit) bake(toy);
+    bake(inner, [toy]);
     const glass = mesh(G.sphere(40), M.bubble(), { s: 1, parent: g, cast: false });
     glass.renderOrder = 2;
     // a sparkle that orbits the worlds she has not visited yet
@@ -384,6 +388,8 @@ export const hub = {
         mesh(G.sphere(14), M.toy(col), { p: [Math.cos(a) * 0.26, Math.sin(a) * 0.26, 0], s: [0.2, 0.2, 0.1], parent: head, cast: false });
       }
       mesh(G.sphere(16), M.toy('#FFF2A8'), { p: [0, 0, 0.05], s: [0.17, 0.17, 0.1], parent: head, cast: false });
+      bake(head);
+      bake(g, [head]);
       this.harp.push({ g, head, x: sx, y: H - 6 - 30, note: i, sq: new Spring(1, 300, 8), lean: new Spring(0, 160, 6), glow: 0 });
     }
     if (this.nest) this.placeNest();
@@ -400,7 +406,7 @@ export const hub = {
     }
   },
 
-  meadowCap() { return this.W > 900 ? 9 : this.W > 640 ? 8 : 5; },
+  meadowCap() { return this.W > 900 ? 8 : this.W > 640 ? 7 : 5; },
   randSpot() { return [rand(-this.meadow.x, this.meadow.x * 0.55), rand(this.meadow.z0, this.meadow.z1)]; },
 
   fillResidents() {
@@ -426,7 +432,7 @@ export const hub = {
     for (let i = 0; i < 3; i++) mesh(G.torus(0.32, TAU, 32), straw, { p: [0, 0.18 + i * 0.12, 0], r: [Math.PI / 2, 0, i], s: [0.95 - i * 0.05, 0.95 - i * 0.05, 0.8], parent: n.g });
     n.eggG = group(n.g, [0, 0.35, 0]);
     const tex = eggTex('#FFF3F8', '#FF9FC6', '#FFD7EA', 3);
-    n.egg = mesh(eggShape(), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 }), { p: [0, 0.75, 0], s: 0.72, parent: n.eggG });
+    n.egg = mesh(eggShape(), PM({ map: tex, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 }), { p: [0, 0.75, 0], s: 0.72, parent: n.eggG });
     // star slots: three stars make an egg
     n.stars = [];
     for (let i = 0; i < 3; i++) {
@@ -438,6 +444,7 @@ export const hub = {
     const sh = blobShadow(1.2, 0.35);
     sh.position.y = 0.02;
     n.g.add(sh);
+    bake(n.g, [n.eggG, ...n.stars, n.count]);
     this.placeNest();
   },
   placeNest() {
@@ -538,7 +545,7 @@ export const hub = {
     n.stars.forEach((s, i) => {
       const on = i < save.data.stars;
       s.position.set((i - 1) * 0.7, 2.75 - Math.abs(i - 1) * 0.2 + Math.sin(t * 2 + i) * 0.05, 0.2);
-      s.material = on ? M.glossy('#FFC233', { emissive: '#FFA000', emissiveIntensity: 0.25 }) : M.toy('#FFFFFF', { transparent: true, opacity: 0.55 });
+      s.material = on ? STAR_ON : STAR_OFF;
       s.rotation.y = on ? t * 1.5 + i : 0;
     });
     n.count.visible = save.data.eggs > 1;
@@ -937,6 +944,8 @@ export const hub = {
   }
 };
 
+const STAR_ON = M.glossy('#FFC233', { emissive: '#FFA000', emissiveIntensity: 0.25 });
+const STAR_OFF = M.toy('#FFFFFF', { transparent: true, opacity: 0.55 });
 let raysT = null;
 function raysTex() {
   if (raysT) return raysT;

@@ -9,7 +9,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lathe, lighten, darken, starShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lathe, lighten, darken, starShape, PM, bake } from '../core/stage.js';
 import { Critter, SPECIES, wear } from '../art/critter3d.js';
 import { dumplingShape } from '../art/worldtoys.js';
 
@@ -174,7 +174,7 @@ function buildContainer(kind) {
   const g = new THREE.Group();
   const c = { kind, g, lid: null, sq: new Spring(1, 300, 10), peek: [] };
   if (kind === 'bao') {
-    const bam = new THREE.MeshPhysicalMaterial({ map: slatTex(), roughness: 0.7, clearcoat: 0.2 });
+    const bam = PM({ map: slatTex(), roughness: 0.7, clearcoat: 0.2 });
     mesh(G.cyl(40), bam, { p: [0, 0.45, 0], s: [1.05, 0.9, 1.05], parent: g });
     mesh(G.cyl(40), M.toy('#F3DDB5'), { p: [0, 0.91, 0], s: [0.98, 0.02, 0.98], parent: g, cast: false });
     for (const y of [0.04, 0.88]) mesh(G.torus(0.06, TAU, 40), M.toy('#C9965A'), { p: [0, y, 0], r: [Math.PI / 2, 0, 0], s: 1.07, parent: g, cast: false });
@@ -228,6 +228,9 @@ function buildContainer(kind) {
   const sh = blobShadow(1.4, 0.3);
   sh.position.y = 0.01;
   g.add(sh);
+  if (c.lid) bake(c.lid);
+  bake(g, [c.lid, ...c.peek]);
+  for (const p of c.peek) if (p.isGroup) bake(p);
   return c;
 }
 let heartS = null;
@@ -308,6 +311,7 @@ export const dumplings = {
     const ps = blobShadow(2.3, 0.28);
     ps.position.y = 0.005;
     this.plate.add(ps);
+    bake(this.plate);
     this.pets = [];
     this.layout();
     for (const id of this.d.recent.slice(-3)) if (TOYS[id]) this.addPet(id, false);
@@ -334,7 +338,7 @@ export const dumplings = {
     const W = this.world;
     const wood = woodTex();
     wood.repeat.set(2, 1);
-    mesh(G.box(0.2), new THREE.MeshPhysicalMaterial({ map: wood, roughness: 0.55, clearcoat: 0.4, clearcoatRoughness: 0.4 }), { p: [0, -0.4, 0], s: [26, 0.8, 11], receive: true, parent: W });
+    mesh(G.box(0.2), PM({ map: wood, roughness: 0.55, clearcoat: 0.4, clearcoatRoughness: 0.4 }), { p: [0, -0.4, 0], s: [26, 0.8, 11], receive: true, parent: W });
     const wt = wallTex();
     wt.repeat.set(10, 5);
     mesh(G.plane(), new THREE.MeshStandardMaterial({ map: wt, roughness: 0.9 }), { p: [0, 6, -5.6], s: [60, 16, 1], receive: true, cast: false, parent: W });
@@ -348,6 +352,7 @@ export const dumplings = {
       mesh(G.cyl(4), M.basic('#C98A52'), { p: [0, 2, 0], s: [0.015, 2.8, 0.015], parent: g, cast: false });
       for (let r = 0; r < 4; r++) mesh(G.torus(0.02, TAU, 24), M.toy(darken(lc[i % lc.length], 0.15)), { p: [0, -0.36 + r * 0.24, 0], r: [Math.PI / 2, 0, 0], s: [0.52 - Math.abs(r - 1.5) * 0.08, 0.52 - Math.abs(r - 1.5) * 0.08, 0.5], parent: g, cast: false });
       g.userData = { ph: rand(TAU), sq: new Spring(0, 60, 2) };
+      bake(g);
       this.lanterns.push(g);
     }
     // the collection shelf on the wall above the table
@@ -357,12 +362,14 @@ export const dumplings = {
     for (const y of [2.1, 4.3, 6.5]) mesh(G.box(0.08), plank, { p: [0, y, 0.35], s: [10.6, 0.24, 1.0], parent: this.shelfG });
     for (const x of [-5.2, 5.2]) mesh(G.box(0.08), plank, { p: [x, 4.3, 0.35], s: [0.28, 4.6, 1.0], parent: this.shelfG });
     mesh(G.puffy('heartshelf', heartFn(), 0.3, 0.12), M.glossy('#FF6F9B'), { p: [0, 7.15, 0.4], s: 0.45, parent: this.shelfG, cast: false });
+    bake(this.shelfG);
     // a tiny window with a garden outside
     const win = group(W, [7.5, 4.5, -5.5]);
     mesh(G.box(0.1), M.toy('#FFFFFF'), { s: [3.2, 3.2, 0.2], parent: win, cast: false });
     mesh(G.plane(), new THREE.MeshBasicMaterial({ map: canvasTex(64, 128, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#8FD0FF'); g.addColorStop(0.7, '#D4F0FF'); g.addColorStop(0.71, '#8FDE7E'); g.addColorStop(1, '#7ACB6E'); x.fillStyle = g; x.fillRect(0, 0, w, h); }) }), { p: [0, 0, 0.12], s: [2.7, 2.7, 1], parent: win, cast: false });
     mesh(G.box(0.05), M.toy('#FFFFFF'), { p: [0, 0, 0.16], s: [0.12, 2.8, 0.06], parent: win, cast: false });
     mesh(G.box(0.05), M.toy('#FFFFFF'), { p: [0, 0, 0.16], s: [2.8, 0.12, 0.06], parent: win, cast: false });
+    bake(win);
     // teapot and cups for cosiness
     const pot = group(W, [-6.6, 0, -2.6]);
     mesh(G.sphere(28), M.glossy('#8FDBFF'), { p: [0, 0.75, 0], s: [0.85, 0.72, 0.85], parent: pot });
@@ -371,6 +378,7 @@ export const dumplings = {
     mesh(G.capsule(1, 8), M.glossy('#8FDBFF'), { p: [0.95, 0.95, 0], r: [0, 0, -0.9], s: [0.11, 0.3, 0.11], parent: pot, cast: false });
     mesh(G.torus(0.25, Math.PI * 1.4, 20), M.glossy('#8FDBFF'), { p: [-0.85, 0.85, 0], r: [0, 0, Math.PI * 0.7], s: 0.35, parent: pot, cast: false });
     for (let i = 0; i < 5; i++) mesh(G.sphere(12), M.glossy('#FFFFFF'), { p: [Math.cos(i * 1.25) * 0.86, 0.75, Math.sin(i * 1.25) * 0.86], s: 0.1, parent: pot, cast: false });
+    bake(pot);
     this.pot = pot;
     this.potSq = new Spring(1, 260, 8);
     // steam puffs

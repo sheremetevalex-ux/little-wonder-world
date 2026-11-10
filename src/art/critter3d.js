@@ -1,7 +1,7 @@
 // Living 3D toys. One soft-bodied family of characters, built from rounded
 // shapes with painted bellies, glossy eyes and springy ears, so that every
 // creature in every game moves, blinks, squishes and talks the same lovable way.
-import { THREE, M, G, mesh, group, blobShadow, lighten, darken, lathe } from '../core/stage.js';
+import { THREE, M, G, mesh, group, blobShadow, lighten, darken, lathe, PM, bake } from '../core/stage.js';
 import { Spring } from '../core/engine.js';
 import { audio } from '../core/audio.js';
 import { FRIENDS } from './creatures.js';
@@ -38,13 +38,14 @@ let hornG = null;
 const horn = () => hornG || (hornG = lathe([new THREE.Vector2(0, -0.5), new THREE.Vector2(0.34, -0.48), new THREE.Vector2(0.26, 0), new THREE.Vector2(0.12, 0.38), new THREE.Vector2(0.03, 0.5), new THREE.Vector2(0, 0.5)], 16));
 
 const INK = '#2B1D48';
+const TMP_V = new THREE.Vector3(), TMP_D = new THREE.Vector3(), TMP_Q = new THREE.Quaternion();
 const MOUTH = '#6B2A4E';
 
 // ---- body paint: belly, stripes, spots, patches as smooth vertex colours -----------------
 function bodyGeometry(id, sp) {
   const key = 'body:' + id;
   if (bodyCache.has(key)) return bodyCache.get(key);
-  const g = new THREE.SphereGeometry(1, 56, 40);
+  const g = new THREE.SphereGeometry(1, 36, 26);
   // A toy is never a perfect ball: a little fuller at the bottom, flat where it sits
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
@@ -138,7 +139,7 @@ export class Critter {
 
     // Body
     const bodyMat = sp.jelly ? M.jelly(sp.body, { thickness: 1.6 }) :
-      new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.48, clearcoat: 0.45, clearcoatRoughness: 0.3, sheen: 0.35, sheenRoughness: 0.5, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.85 });
+      PM({ vertexColors: true, roughness: 0.48, clearcoat: 0.45, clearcoatRoughness: 0.3, sheen: 0.35, sheenRoughness: 0.5, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.85 });
     this.bodyMat = bodyMat;
     this.body = mesh(bodyGeometry(this.id, sp), bodyMat, { p: [0, ry, 0], s: [rx, ry, rz], parent: this.yaw });
     this.body.userData.critter = this;
@@ -552,7 +553,17 @@ export class Critter {
   /** look at a world point (or null to look ahead) */
   look(p) { this.lookAt = p; }
 
+  /** Merge the parts that never move on their own: half the draw calls */
+  bakeParts() {
+    this.baked = true;
+    bake(this.yaw, [this.body, this.face, ...this.ears, ...this.arms, this.tail, ...(this.wings || []), ...(this.flaps || []), this.halo, this.halo2 && this.halo2.parent, this.ring, this.aura]);
+    bake(this.face, [...this.eyes.map((e) => e.g), this.mouth, this.beakLow]);
+    for (const e of this.ears) bake(e);
+    for (const e of this.eyes) bake(e.ball);
+  }
+
   update(dt, cam) {
+    if (!this.baked) this.bakeParts();
     this.t += dt;
     const t = this.t;
     if (this.moodT > 0) { this.moodT -= dt; if (this.moodT <= 0) this.mood = this.sleep ? 'sleep' : 'idle'; }
@@ -586,10 +597,10 @@ export class Critter {
     // looking around
     let ty = 0, tp = 0;
     if (this.lookAt) {
-      const wp = new THREE.Vector3();
+      const wp = TMP_V;
       this.face.getWorldPosition(wp);
-      const d = this.lookAt.clone().sub(wp);
-      const inv = new THREE.Quaternion();
+      const d = TMP_D.copy(this.lookAt).sub(wp);
+      const inv = TMP_Q;
       this.root.getWorldQuaternion(inv).invert();
       d.applyQuaternion(inv);
       ty = Math.max(-0.5, Math.min(0.5, Math.atan2(d.x, Math.max(0.3, d.z))));
@@ -665,6 +676,7 @@ export class Critter {
 
   /** Free everything this creature created only for itself */
   dispose() {
+    this.root.traverse((o) => { if (o.geometry && o.geometry.userData.baked) o.geometry.dispose(); });
     if (this.shadow) this.shadow.material.dispose();
     if (!this.sp.jelly && this.bodyMat) this.bodyMat.dispose();
   }

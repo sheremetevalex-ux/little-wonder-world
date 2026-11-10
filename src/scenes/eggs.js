@@ -9,7 +9,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rand, pick, dist, clamp, lerp, TAU, softStar } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lathe, lighten, darken, starShape, skyTexture } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lathe, lighten, darken, starShape, skyTexture, PM, bake } from '../core/stage.js';
 import { Critter, SPECIES, wear } from '../art/critter3d.js';
 import { eggShape, eggTex } from '../art/worldtoys.js';
 
@@ -44,8 +44,8 @@ function crystalEgg() {
 }
 
 function eggMaterial(def) {
-  if (def.crystal) return new THREE.MeshPhysicalMaterial({ color: def.base, roughness: 0.08, transmission: 0.55, thickness: 1.2, ior: 1.45, clearcoat: 1, flatShading: true, emissive: def.glow, emissiveIntensity: 0.12, envMapIntensity: 1.4 });
-  return new THREE.MeshPhysicalMaterial({ map: eggTex(def.base, def.dot, def.band, def.id.length), roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.12, emissive: def.glow, emissiveIntensity: 0.06, sheen: 0.4, sheenColor: new THREE.Color(def.glow) });
+  if (def.crystal) return PM({ color: def.base, roughness: 0.08, transmission: 0.55, thickness: 1.2, ior: 1.45, clearcoat: 1, flatShading: true, emissive: def.glow, emissiveIntensity: 0.12, envMapIntensity: 1.4 });
+  return PM({ map: eggTex(def.base, def.dot, def.band, def.id.length), roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.12, emissive: def.glow, emissiveIntensity: 0.06, sheen: 0.4, sheenColor: new THREE.Color(def.glow) });
 }
 
 function buildEgg(def) {
@@ -178,11 +178,13 @@ export const eggs = {
     }
     W.add(fl);
     // grass tufts
+    const tufts = group(W);
     for (let i = 0; i < 40; i++) {
       const a = rand(TAU), r = rand(4, 14);
-      const tg = group(W, [Math.cos(a) * r * 1.3, 0, Math.sin(a) * r * 0.7 - 1]);
+      const tg = group(tufts, [Math.cos(a) * r * 1.3, 0, Math.sin(a) * r * 0.7 - 1]);
       for (let k = 0; k < 3; k++) mesh(G.cone(6), M.toy('#4FA08A', { roughness: 0.9 }), { p: [(k - 1) * 0.08, 0.12, 0], r: [0, 0, (k - 1) * 0.3], s: [0.05, 0.3, 0.05], parent: tg, cast: false });
     }
+    bake(tufts);
     // dark magic trees around
     this.trees = [];
     const tc = ['#5E4FB8', '#4A3E9E', '#7A5FD0', '#3D6FA8'];
@@ -198,6 +200,7 @@ export const eggs = {
       mesh(G.sphere(16), M.toy(darken(tcol, 0.1), { roughness: 0.6 }), { p: [-s * 0.6, s * 1.5, s * 0.35], s: s * 0.5, parent: tg, cast: false });
       for (let k = 0; k < 3; k++) mesh(G.sphere(8), M.glow(pick(['#FFF2A8', '#FFC4E8', '#BDF0FF']), { opacity: 0.9 }), { p: [Math.cos(k * 2.1) * s * 0.8, s * (1.5 + k * 0.3), s * 0.85], s: 0.12, parent: tg, cast: false });
       tg.userData = { sq: new Spring(1, 200, 6), ph: rand(TAU) };
+      bake(tg);
       this.trees.push(tg);
     }
     // glowing mushrooms that ring like bells
@@ -216,6 +219,7 @@ export const eggs = {
       for (let k = 0; k < 4; k++) mesh(G.sphere(8), M.basic('#FFFFFF'), { p: [Math.cos(k * 1.6) * 0.3 * s, 1.08 * s, Math.sin(k * 1.6) * 0.3 * s], s: 0.06 * s, parent: g, cast: false });
       const light = mesh(G.sphere(12), M.glow(col, { opacity: 0.1 }), { p: [0, 0.8 * s, 0], s: 0.8 * s, parent: g, cast: false });
       g.userData = { sq: new Spring(1, 260, 8), note: this.shrooms.length, cap, light };
+      bake(g, [cap, light]);
       this.shrooms.push(g);
     }
     // the nest on a mossy stump
@@ -223,9 +227,11 @@ export const eggs = {
     mesh(G.cyl(32, 0.92), M.toy('#8A6A9E', { roughness: 0.8 }), { p: [0, 0.4, 0], s: [1.6, 0.8, 1.6], parent: this.nest, receive: true });
     mesh(G.cyl(32), M.toy('#6FCB8A', { roughness: 0.9 }), { p: [0, 0.82, 0], s: [1.5, 0.08, 1.5], parent: this.nest, receive: true });
     for (let i = 0; i < 3; i++) mesh(G.torus(0.3, TAU, 32), M.toy('#D9B27C', { roughness: 0.85 }), { p: [0, 0.95 + i * 0.13, 0], r: [Math.PI / 2, 0, i], s: [1.05 - i * 0.05, 1.05 - i * 0.05, 0.7], parent: this.nest });
+    bake(this.nest);
     // the berry bush
     this.bush = group(W, [-4.6, 0, 1.6]);
     for (let i = 0; i < 5; i++) mesh(G.sphere(20), M.toy(i % 2 ? '#3F9E7A' : '#4FB88A', { roughness: 0.7 }), { p: [Math.cos(i * 1.3) * 0.7, 0.75 + (i % 2) * 0.35, Math.sin(i * 1.3) * 0.4], s: 0.75, parent: this.bush });
+    bake(this.bush);
     this.bushSq = new Spring(1, 220, 7);
     // sky: moon, stars, fireflies
     this.moon = group(W, [9, 14, -28]);

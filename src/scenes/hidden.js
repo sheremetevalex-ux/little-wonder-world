@@ -10,7 +10,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, PM, bake } from '../core/stage.js';
 import { Critter, SPECIES } from '../art/critter3d.js';
 
 const PLACES = [
@@ -179,7 +179,7 @@ const B = {
   },
   ball() {
     const g = new THREE.Group();
-    mesh(G.sphere(20), new THREE.MeshPhysicalMaterial({ map: ballTex(), roughness: 0.3, clearcoat: 1 }), { p: [0, 0.4, 0], s: 0.4, parent: g });
+    mesh(G.sphere(20), PM({ map: ballTex(), roughness: 0.3, clearcoat: 1 }), { p: [0, 0.4, 0], s: 0.4, parent: g });
     return { g, hide: null, h: 0.8, wob: 'ball' };
   },
   snowman() {
@@ -209,7 +209,7 @@ const B = {
     const t = new THREE.Group();
     t.position.y = 1.9;
     g.add(t);
-    mesh(G.puck(0.4), new THREE.MeshPhysicalMaterial({ map: swirlTex(pick(['#FF5C8F', '#8C68F2', '#3FD0C9'])), roughness: 0.2, clearcoat: 1 }), { r: [Math.PI / 2, 0, 0], s: [0.85, 0.22, 0.85], parent: t });
+    mesh(G.puck(0.4), PM({ map: swirlTex(pick(['#FF5C8F', '#8C68F2', '#3FD0C9'])), roughness: 0.2, clearcoat: 1 }), { r: [Math.PI / 2, 0, 0], s: [0.85, 0.22, 0.85], parent: t });
     return { g, hide: 'side', h: 0.8, wob: 'tree' };
   },
   cupcake() {
@@ -221,7 +221,7 @@ const B = {
   },
   cane() {
     const g = new THREE.Group();
-    const m = new THREE.MeshPhysicalMaterial({ map: stripeTex(), roughness: 0.25, clearcoat: 1 });
+    const m = PM({ map: stripeTex(), roughness: 0.25, clearcoat: 1 });
     mesh(G.cyl(10), m, { p: [0, 0.9, 0], s: [0.12, 1.8, 0.12], parent: g });
     mesh(G.torus(0.12, Math.PI, 16), m, { p: [0.3, 1.8, 0], s: 0.3, parent: g });
     return { g, hide: null, h: 0.5 };
@@ -242,9 +242,13 @@ const B = {
     const g = new THREE.Group();
     mesh(G.cyl(6), M.toy('#5A4A7A'), { p: [0, 0.9, 0], s: [0.06, 1.8, 0.06], parent: g });
     mesh(G.sphere(16), M.toy('#FFD45C', { emissive: '#FFB000', emissiveIntensity: 1 }), { p: [0, 1.95, 0], s: [0.26, 0.32, 0.26], parent: g, cast: false });
-    const l = new THREE.PointLight('#FFD48A', 4, 5, 1.6);
-    l.position.y = 1.9;
-    g.add(l);
+    // a real light only for some lanterns: every light makes every pixel dearer
+    B.lights = (B.lights || 0) + 1;
+    if (B.lights % 3 === 1) {
+      const l = new THREE.PointLight('#FFD48A', 5, 6, 1.6);
+      l.position.y = 1.9;
+      g.add(l);
+    }
     return { g, hide: null, h: 0.5 };
   }
 };
@@ -278,6 +282,7 @@ export const hidden = {
       this.stage.dispose();
     }
     this.level = clamp(level, 0, PLACES.length * 3 - 1);
+    B.lights = 0;
     const pl = this.place = PLACES[Math.floor(this.level / 3)];
     const tier = this.level % 3;
     const count = COUNTS[Math.floor(this.level / 3)][tier];
@@ -321,7 +326,7 @@ export const hidden = {
     for (let x = w / 2; x >= -w / 2; x -= 1) path.lineTo(x, -0.6 + Math.sin(x * 0.3) * 1.2);
     const pm = mesh(new THREE.ShapeGeometry(path, 4), M.matte(pl.id === 'snow' ? '#E2ECFA' : pl.id === 'candy' ? '#FFF0F8' : pl.id === 'night' ? '#5A8A8A' : pl.id === 'beach' ? '#FFF0CC' : '#E8D9A8'), { r: [-Math.PI / 2, 0, 0], p: [0, 0.01, 1.2], receive: true, cast: false, parent: W });
     if (pl.sea) {
-      const sea = mesh(G.plane(), new THREE.MeshPhysicalMaterial({ color: '#4FC4E8', roughness: 0.15, clearcoat: 1, transparent: true, opacity: 0.9 }), { r: [-Math.PI / 2, 0, 0], p: [0, 0.03, -9.5], s: [w, 6, 1], cast: false, parent: W });
+      const sea = mesh(G.plane(), PM({ color: '#4FC4E8', roughness: 0.15, clearcoat: 1, transparent: true, opacity: 0.9 }), { r: [-Math.PI / 2, 0, 0], p: [0, 0.03, -9.5], s: [w, 6, 1], cast: false, parent: W });
       this.sea = sea;
     } else this.sea = null;
     // distant scenery: hills or dunes along the back
@@ -352,15 +357,19 @@ export const hidden = {
       const s = rand(0.9, 1.15);
       pr.g.scale.setScalar(s);
       pr.sq = new Spring(1, 240, 8);
+      if (pr.lid) bake(pr.lid);
+      bake(pr.g, [pr.lid]);
       W.add(pr.g);
       this.props.push(pr);
       if (pr.hide) hideable.push(pr);
     }
     // a few little extras: flowers, pebbles
+    const bits = group(W);
     for (let i = 0; i < 30; i++) {
       const col = pl.id === 'snow' ? '#FFFFFF' : pl.id === 'candy' ? pick(['#FF5C8F', '#FFE066', '#8FD0FF']) : pick(['#FF82AF', '#FFD45C', '#FFFFFF', '#B48BFF']);
-      mesh(G.sphere(8), M.toy(col), { p: [rand(-w / 2, w / 2), 0.06, rand(-5, 3)], s: rand(0.07, 0.13), parent: W, cast: false });
+      mesh(G.sphere(8), M.toy(col), { p: [rand(-w / 2, w / 2), 0.06, rand(-5, 3)], s: rand(0.07, 0.13), parent: bits, cast: false });
     }
+    bake(bits);
     // spread the puppies along the whole width
     hideable.sort((a, b) => a.g.position.x - b.g.position.x);
     const chosen = [];

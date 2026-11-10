@@ -8,7 +8,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, rand, pick, dist, clamp, TAU } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, canvasTex } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, canvasTex, PM, bake } from '../core/stage.js';
 import { Critter } from '../art/critter3d.js';
 
 const SHAPES = [
@@ -27,10 +27,11 @@ const PALETTES = [
   ['#7FEBC6', '#6FDBB8', '#55C6C6', '#55B0E6', '#6F97F2', '#8F87F2', '#B98AFF']
 ];
 let domeG = null;
+const HOLE = new THREE.MeshBasicMaterial({ color: '#3A2060', transparent: true, opacity: 0.26, depthWrite: false });
 const dome = () => domeG || (domeG = new THREE.SphereGeometry(1, 28, 12, 0, TAU, 0, Math.PI / 2));
 
 function silicone(col) {
-  return new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.42, sheen: 0.15, sheenColor: new THREE.Color('#ffffff'), clearcoat: 0.5, clearcoatRoughness: 0.35, side: THREE.DoubleSide, envMapIntensity: 0.55 });
+  return PM({ color: col, roughness: 0.42, sheen: 0.15, sheenColor: new THREE.Color('#ffffff'), clearcoat: 0.5, clearcoatRoughness: 0.35, side: THREE.DoubleSide, envMapIntensity: 0.55 });
 }
 
 export const popit = {
@@ -90,10 +91,12 @@ export const popit = {
         const d = mesh(dome(), m, { p: [x, 0.24, z], s: [0.4, 0.4, 0.4], parent: g });
         mesh(G.torus(0.12, TAU, 28), m, { p: [x, 0.25, z], r: [Math.PI / 2, 0, 0], s: 0.4, parent: g, cast: false });
         // the hollow of a popped dome
-        const hole = mesh(G.circle(24), new THREE.MeshBasicMaterial({ color: '#3A2060', transparent: true, opacity: 0, depthWrite: false }), { p: [x, 0.245, z], r: [-Math.PI / 2, 0, 0], s: 0.36, parent: g, cast: false });
+        const hole = mesh(G.circle(24), HOLE, { p: [x, 0.245, z], r: [-Math.PI / 2, 0, 0], s: 0.36, parent: g, cast: false });
+        hole.visible = false;
         this.cells.push({ rx, ry, x, z, d, hole, up: true, k: 1, v: 0, target: 1, friend: null });
       }
     });
+    bake(g, this.cells.flatMap((q) => [q.d, q.hole]));
     const owned = save.data.friends;
     const n = 1 + Math.floor(Math.random() * 2);
     for (let i = 0; i < n; i++) pick(this.cells).friend = pick(owned);
@@ -177,7 +180,8 @@ export const popit = {
       q.k += q.v * dt;
       q.d.scale.set(0.4, 0.4 * q.k, 0.4);
       q.d.position.y = 0.24 + (q.k < 0 ? 0.005 : 0);
-      q.hole.material.opacity = clamp(-q.k) * 0.28;
+      q.hole.visible = q.k < -0.05;
+      if (q.hole.visible) q.hole.scale.setScalar(0.36 * clamp(-q.k / 0.75));
       if (q.friendC) {
         q.peekT += dt;
         const c = q.friendC;

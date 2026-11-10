@@ -10,7 +10,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, PM } from '../core/stage.js';
 
 const TYPES = [
   { id: 'cat', color: '#FFB3CF', mat: 'plush', voice: 1.15 },
@@ -29,8 +29,8 @@ function data() {
 }
 
 // ---- shapes: everything is a deformed sphere, so it squishes smoothly ----------------------
-function shapeGeometry(id) {
-  const g = new THREE.SphereGeometry(1, 72, 54);
+function shapeGeometry(id, lo = false) {
+  const g = lo ? new THREE.SphereGeometry(1, 28, 20) : new THREE.SphereGeometry(1, 56, 42);
   const p = g.attributes.position;
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
@@ -79,10 +79,10 @@ function shapeGeometry(id) {
 }
 
 function squishMaterial(type, color) {
-  if (type.mat === 'jelly') return new THREE.MeshPhysicalMaterial({ color: lighten(color, 0.2), roughness: 0.12, transmission: 0.6, thickness: 0.7, ior: 1.2, attenuationColor: new THREE.Color(color), attenuationDistance: 1.2, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.1 });
-  if (type.mat === 'plush') return new THREE.MeshPhysicalMaterial({ color, roughness: 0.78, sheen: 1, sheenRoughness: 0.4, sheenColor: new THREE.Color(lighten(color, 0.6)), envMapIntensity: 0.7 });
-  if (type.mat === 'soft') return new THREE.MeshPhysicalMaterial({ color, roughness: 0.55, sheen: 0.7, sheenColor: new THREE.Color('#ffffff'), clearcoat: 0.3, envMapIntensity: 0.8 });
-  return new THREE.MeshPhysicalMaterial({ color, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1 });
+  if (type.mat === 'jelly') return PM({ color: lighten(color, 0.2), roughness: 0.12, transmission: 0.6, thickness: 0.7, ior: 1.2, attenuationColor: new THREE.Color(color), attenuationDistance: 1.2, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.1 });
+  if (type.mat === 'plush') return PM({ color, roughness: 0.78, sheen: 1, sheenRoughness: 0.4, sheenColor: new THREE.Color(lighten(color, 0.6)), envMapIntensity: 0.7 });
+  if (type.mat === 'soft') return PM({ color, roughness: 0.55, sheen: 0.7, sheenColor: new THREE.Color('#ffffff'), clearcoat: 0.3, envMapIntensity: 0.8 });
+  return PM({ color, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1 });
 }
 
 // ---- a soft body --------------------------------------------------------------------
@@ -389,7 +389,7 @@ export const squishy = {
     // the shelf of squishies to choose from
     this.minis = TYPES.map((tp, i) => {
       const g = group(W);
-      const geo = shapeGeometry(tp.id);
+      const geo = shapeGeometry(tp.id, true);
       const look = this.d.looks[tp.id] || {};
       const m = mesh(geo, squishMaterial(tp, look.color || tp.color), { s: 0.32, p: [0, 0.32, 0], parent: g });
       const ink = M.glossy('#2B1D48');
@@ -509,7 +509,7 @@ export const squishy = {
     const sq = this.sq;
     const tp = sq.type;
     const g = group(this.world);
-    const m = mesh(shapeGeometry(tp.id), squishMaterial(tp, sq.look.color), { s: 0.28, parent: g });
+    const m = mesh(shapeGeometry(tp.id, true), squishMaterial(tp, sq.look.color), { s: 0.28, parent: g });
     const ink = M.glossy('#2B1D48');
     for (const s of [-1, 1]) mesh(G.sphere(10), ink, { p: [s * 0.09, 0.04, 0.25], s: [0.03, 0.04, 0.02], parent: g, cast: false });
     g.position.copy(sq.g.position).add(V(0, 0.6, 0.4));

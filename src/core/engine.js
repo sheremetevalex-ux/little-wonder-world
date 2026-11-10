@@ -8,7 +8,7 @@ import { resizeGL, showGL } from './stage.js';
 export const app = {
   W: 390, H: 844, scale: 1, pr: 2, t: 0, dt: 1 / 60,
   safeTop: 0, safeBottom: 0, quality: 1,
-  canvas: null, c: null, scene: null, scenes: {}, frame: 0, fps: 60
+  canvas: null, c: null, scene: null, scenes: {}, frame: 0, fps: 60, cost: 0
 };
 
 // ---- tweens ------------------------------------------------------------------
@@ -434,9 +434,9 @@ function frame(now) {
 
   // If an old phone can't keep up, trade a little sharpness for smoothness
   if (raw > 0 && raw < 0.2) {
-    slowFor = app.fps < 38 ? slowFor + dt : Math.max(0, slowFor - dt);
-    if (slowFor > 2.2 && app.quality > 0.62) {
-      app.quality -= 0.19;
+    slowFor = app.fps < 46 ? slowFor + dt : Math.max(0, slowFor - dt);
+    if (slowFor > 1.6 && app.quality > 0.62) {
+      app.quality -= 0.13;
       slowFor = 0;
       layout();
     }
@@ -444,6 +444,7 @@ function frame(now) {
 
   const c = app.c;
   c.setTransform(app.pr * app.scale, 0, 0, app.pr * app.scale, 0, 0);
+  const t0 = performance.now();
   try {
     stepTimers(dt);
     const s = app.scene;
@@ -466,6 +467,8 @@ function frame(now) {
     if (s && s.overlay) s.overlay(c);
     if (trans) drawTransition(c, dt);
     if (app.rotate) drawRotateHint(c);
+    // how long our own work takes per frame (update, 3D submit, 2D drawing)
+    app.cost += (performance.now() - t0 - app.cost) * 0.05;
   } catch (err) {
     // One bad frame must never freeze the game in a child's hands
     console.error(err);

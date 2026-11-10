@@ -11,7 +11,7 @@ import { music } from '../core/music.js';
 import { fx } from '../core/fx.js';
 import { save } from '../core/save.js';
 import { P, E, ell, rr, rand, pick, dist, clamp, lerp, TAU, softStar, heart } from '../core/draw.js';
-import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape } from '../core/stage.js';
+import { Stage, THREE, M, G, mesh, group, V, blobShadow, canvasTex, lighten, darken, starShape, bake } from '../core/stage.js';
 import { Critter, wear } from '../art/critter3d.js';
 
 const WORLDS = [
@@ -190,12 +190,15 @@ export const jump = {
     const arch = group(this.world, [0, y, -0.6]);
     const cols = ['#FF5C6F', '#FF9F43', '#FFE066', '#7FD86F', '#5FB8FF', '#B48BFF'];
     cols.forEach((c, k) => mesh(G.torus(0.12, Math.PI, 40), M.toy(c, { emissive: c, emissiveIntensity: 0.25 }), { s: 3 - k * 0.24, parent: arch, cast: false }));
+    bake(arch);
     this.arch = arch;
     this.top = y;
+    for (const pl of this.plats) bake(pl.g, [pl.cpG]);
+    for (const b of this.boxes) bake(b.g, [b.g.children[0]]);
   },
 
   addCheckpoint(pl) {
-    const g = group(pl.g, [pl.w / 2 - 0.4, 0, -0.2]);
+    const g = pl.cpG = group(pl.g, [pl.w / 2 - 0.4, 0, -0.2]);
     mesh(G.cyl(8), M.toy('#FFFFFF'), { p: [0, 0.9, 0], s: [0.05, 1.8, 0.05], parent: g, cast: false });
     const flag = mesh(G.box(0.05), M.toy('#C9C6DA'), { p: [0.35, 1.55, 0], s: [0.6, 0.4, 0.04], parent: g, cast: false });
     this.checkpoints.push({ pl, flag, on: false });
@@ -226,7 +229,7 @@ export const jump = {
   },
 
   buildBackdrop(li) {
-    const W = this.world, w = this.w, top = this.top + 10;
+    const W = group(this.world), w = this.w, top = this.top + 10;
     // side walls: soft pillars so Pip never falls off the edge of the world
     const wc = w.id === 'clouds' ? '#FFFFFF' : w.id === 'candy' ? '#FFD1E6' : w.id === 'stars' || w.id === 'moon' ? '#4A3E9E' : '#B9E6A8';
     for (const k of [-1, 1]) {
@@ -256,6 +259,7 @@ export const jump = {
       const moon = mesh(G.sphere(32), new THREE.MeshBasicMaterial({ color: '#FFF4C8' }), { p: [9, top * 0.6, -20], s: 4, parent: W, cast: false });
       for (let i = 0; i < 5; i++) mesh(G.sphere(12), M.basic('#F2E6B0'), { p: [rand(-2, 2), rand(-2, 2), 3.5], s: rand(0.4, 0.8), parent: moon, cast: false });
     }
+    bake(W);
   },
 
   layoutCam() {

@@ -58,3 +58,4 @@ export {
 } from 'three';
 export { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 export { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+export { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
