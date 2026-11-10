@@ -24,6 +24,7 @@ import { setupPWA } from './pwa.js';
 import { save } from './core/save.js';
 import { audio } from './core/audio.js';
 import { gl } from './core/stage.js';
+import './art/portraits.js';
 
 Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album, sing, cafe, salon, atelier, dumplings, eggs, squishy, hidden, jump });
 (save.data.myDresses || []).forEach((d) => registerCustomDress(d.id, d.url));

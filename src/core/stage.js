@@ -405,10 +405,26 @@ export class Stage {
     return (2 * d * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / a.H;
   }
 
+  /**
+   * Frees the GPU memory this scene used. Shared, cached materials stay alive (so
+   * their shaders do not need compiling again); geometry and one-off materials
+   * and textures are released. Anything still cached is simply uploaded again
+   * the next time it is drawn.
+   */
   dispose() {
+    const shared = new Set(matCache.values());
+    const tex = new Set();
     this.scene.traverse((o) => {
-      if (o.isMesh && o.material && o.material.map && o.material.userData.own) o.material.map.dispose();
+      if (o.geometry) o.geometry.dispose();
+      const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+      for (const m of mats) {
+        if (shared.has(m)) continue;
+        for (const k of ['map', 'alphaMap']) if (m[k]) tex.add(m[k]);
+        m.dispose();
+      }
     });
+    if (this.scene.background && this.scene.background.isTexture) tex.add(this.scene.background);
+    for (const t of tex) t.dispose();
     this.scene.clear();
   }
 }

@@ -31,6 +31,9 @@ export const FRIENDS = {
 
 export const FRIEND_IDS = Object.keys(FRIENDS);
 
+// Set by portraits.js: draws the 3D version of a friend when the 3D layer is available
+export const hooks = { portrait: null };
+
 function earShape(c, spec, R, t, wob) {
   const col = spec.body;
   const fill = (x, y, rx, ry, rot = 0, color = col) => {
@@ -362,6 +365,7 @@ export function drawCreature(c, id, o = {}) {
   c.rotate(o.lean || 0);
   c.scale(sx, sy);
   c.translate(0, -R * 0.92);
+  if (hooks.portrait && !o.flat && hooks.portrait(c, id, o, R)) { c.restore(); return; }
 
   // Wings and things behind the body
   if (spec.wings) {

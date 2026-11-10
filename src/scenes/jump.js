@@ -144,9 +144,9 @@ export const jump = {
     let starAt = [Math.round(w.n * 0.3), Math.round(w.n * 0.6), Math.round(w.n * 0.9)];
     const diff = li / (WORLDS.length - 1);
     for (let i = 1; i <= w.n; i++) {
-      const dy = r(1.55, 2.0 + diff * 0.45);
+      const dy = r(1.3 + diff * 0.3, 1.75 + diff * 0.65);
       y += dy;
-      const span = r(1.8, 3.4 + diff * 0.8);
+      const span = r(1.5, 2.7 + diff * 1.4);
       let nx = x + (R() < 0.5 ? -1 : 1) * span;
       if (Math.abs(nx) > HALF - 1.2) nx = x - Math.sign(nx) * span;
       nx = clamp(nx, -HALF + 1.2, HALF - 1.2);
