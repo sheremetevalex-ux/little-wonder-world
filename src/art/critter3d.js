@@ -506,7 +506,7 @@ export class Critter {
       sh.castShadow = true;
     }
     if (sp.glow) {
-      const gl = mesh(G.sphere(16), M.glow(sp.glow, { opacity: 0.18 }), { p: [0, this.ry, 0], s: 1.45, parent: T, cast: false });
+      const gl = mesh(G.sphere(16), M.glow(sp.glow, { opacity: 0.08 }), { p: [0, this.ry, 0], s: 1.35, parent: T, cast: false });
       this.halo = gl;
     }
     // tails

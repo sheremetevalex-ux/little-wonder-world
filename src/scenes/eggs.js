@@ -94,7 +94,7 @@ function makePet(p) {
   if (p.stage >= 1) wear(c, def.grow[0], def.glow);
   if (p.stage >= 2) {
     wear(c, def.grow[1], def.glow);
-    const aura = mesh(G.sphere(20), M.glow(def.glow, { opacity: 0.16 }), { p: [0, c.ry, 0], s: 1.5, parent: c.yaw, cast: false });
+    const aura = mesh(G.sphere(20), M.glow(def.glow, { opacity: 0.07 }), { p: [0, c.ry, 0], s: 1.4, parent: c.yaw, cast: false });
     c.aura = aura;
     if (!c.sp.wings && !c.sp.wingsPeg && !c.sp.wingsSmall) {
       // grown-ups get little fairy wings
@@ -192,7 +192,11 @@ export const eggs = {
       const tg = group(W, [Math.cos(a) * r * 1.25, 0, -Math.sin(a) * r - 2]);
       const s = rand(1.8, 3);
       mesh(G.cyl(10), M.toy('#3A2A5E'), { p: [0, s * 0.7, 0], s: [0.3 * s, s * 1.4, 0.3 * s], parent: tg });
-      mesh(G.sphere(20), M.toy(pick(tc), { roughness: 0.6 }), { p: [0, s * 1.8, 0], s: [s * 1.1, s, s * 1.1], parent: tg });
+      const tcol = pick(tc);
+      mesh(G.sphere(20), M.toy(tcol, { roughness: 0.6 }), { p: [0, s * 1.8, 0], s: [s * 1.1, s, s * 1.1], parent: tg });
+      mesh(G.sphere(16), M.toy(lighten(tcol, 0.15), { roughness: 0.6 }), { p: [s * 0.55, s * 2.3, s * 0.3], s: s * 0.55, parent: tg, cast: false });
+      mesh(G.sphere(16), M.toy(darken(tcol, 0.1), { roughness: 0.6 }), { p: [-s * 0.6, s * 1.5, s * 0.35], s: s * 0.5, parent: tg, cast: false });
+      for (let k = 0; k < 3; k++) mesh(G.sphere(8), M.glow(pick(['#FFF2A8', '#FFC4E8', '#BDF0FF']), { opacity: 0.9 }), { p: [Math.cos(k * 2.1) * s * 0.8, s * (1.5 + k * 0.3), s * 0.85], s: 0.12, parent: tg, cast: false });
       tg.userData = { sq: new Spring(1, 200, 6), ph: rand(TAU) };
       this.trees.push(tg);
     }
@@ -312,6 +316,7 @@ export const eggs = {
       const fa = a.pets.filter((_, k) => !met.has(a.id + k)).length, fb = b.pets.filter((_, k) => !met.has(b.id + k)).length;
       return fb - fa + (Math.random() - 0.5) * 1.5;
     }).slice(0, 3);
+    for (const pet of this.pets) [pet.tx, pet.tz] = this.spot();
     this.choices = order.map((def, i) => {
       const e = buildEgg(def);
       e.home = V((i - 1) * (app.W > app.H ? 2.9 : 1.9), 1.7, 1.4);
@@ -468,6 +473,8 @@ export const eggs = {
   },
 
   spot() {
+    // while an egg is the star of the show, the babies watch from the sides
+    if (this.state !== 'garden') { const k = Math.random() < 0.5 ? -1 : 1; return [k * rand(Math.min(4.2, this.roamX * 0.8), this.roamX + 0.6), rand(1.8, 3.6)]; }
     return [rand(-this.roamX, this.roamX), rand(0.4, 3.2)];
   },
 
@@ -669,7 +676,7 @@ export const eggs = {
       }
       c.look(cam);
       c.update(dt);
-      if (c.aura) c.aura.scale.setScalar(1.45 + Math.sin(this.t * 3) * 0.08);
+      if (c.aura) c.aura.scale.setScalar(1.3 + Math.sin(this.t * 3) * 0.06);
     }
   },
 

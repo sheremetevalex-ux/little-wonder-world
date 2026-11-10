@@ -142,6 +142,7 @@ export const jump = {
     this.addPlat(0, 0, HALF * 2 + 1, 'static');
     let x = 0, y = 0;
     let starAt = [Math.round(w.n * 0.3), Math.round(w.n * 0.6), Math.round(w.n * 0.9)];
+    let pendingBox = null;
     const diff = li / (WORLDS.length - 1);
     for (let i = 1; i <= w.n; i++) {
       const dy = r(1.3 + diff * 0.3, 1.75 + diff * 0.65);
@@ -166,8 +167,10 @@ export const jump = {
         const n = 3 + Math.floor(R() * 3);
         for (let k = 0; k < n; k++) this.addBerry(x + (k - (n - 1) / 2) * 0.55, y + 1.0 + Math.sin((k / Math.max(1, n - 1)) * Math.PI) * 0.6, pl.type === 'move' ? pl : null, (k - (n - 1) / 2) * 0.55);
       }
-      // a gift box to bump from below
-      if (i % 7 === 3) this.addBox(x + r(-0.4, 0.4), y + 2.9);
+      // a gift box to bump from below, over the ledge just left, and never
+      // where it would hang right over the next ledge and get in the way
+      if (pendingBox) { if (Math.abs(x - pendingBox.x) > 2.3) this.addBox(pendingBox.x, pendingBox.y); pendingBox = null; }
+      if (i % 5 === 3) pendingBox = { x: x + r(-0.3, 0.3), y: y + 2.9 };
       // a big star off to one side, a little harder to reach
       if (starAt.includes(i)) {
         const k = starAt.indexOf(i);
@@ -538,7 +541,7 @@ export const jump = {
       if (pl.goal && !this.done) { this.finish(); return; }
     }
     if (pl.type === 'bounce' && !this.done) {
-      p.vy = JUMP * 1.55;
+      p.vy = JUMP * 1.32;
       p.ground = null;
       p.jumps = 1;
       pl.sq.kick(-6);
