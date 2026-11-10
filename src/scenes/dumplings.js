@@ -379,16 +379,16 @@ export const dumplings = {
 
   layout() {
     const wide = app.W > app.H;
-    const sp = wide ? 3.1 : 2.15;
+    const sp = wide ? 3.1 : 1.7;
     this.containers.forEach((c, i) => {
       c.g.position.set((i - 1.5) * sp, 0, -2.6);
-      c.g.scale.setScalar(wide ? 1 : 0.78);
+      c.g.scale.setScalar(wide ? 1 : 0.66);
       c.x = c.g.position.x;
     });
     this.plate.position.set(0, 0, 0.9);
     this.plate.scale.setScalar(wide ? 1 : 0.85);
     const st = this.stage;
-    this.poseTable = st.pose(V(0, 0.9, -0.5), wide ? 13.6 : 9.2, wide ? 6.4 : 9, [0, 0.9, 1]);
+    this.poseTable = st.pose(V(0, 0.9, wide ? -0.5 : -0.3), wide ? 13.6 : 7.2, wide ? 6.4 : 8, [0, 0.9, 1]);
     this.poseOpen = st.pose(V(0, 1.25, 0.9), wide ? 7.5 : 5.2, wide ? 5.4 : 6.2, [0, 0.45, 1]);
     this.poseShelf = st.pose(V(0, 4.25, -4.9), wide ? 10.8 : 10.4, wide ? 6.2 : 6.6, [0, 0.08, 1]);
     this.roam = wide ? 5.2 : 3.3;
@@ -775,7 +775,7 @@ export const dumplings = {
 
     for (const c of this.containers) {
       const s = c.sq.step(dt);
-      c.g.scale.y = (app.W > app.H ? 1 : 0.78) * s;
+      c.g.scale.y = (app.W > app.H ? 1 : 0.66) * s;
       c.peek.forEach((p, i) => { p.rotation.z = Math.sin(t * 2 + i * 1.7 + c.x) * 0.06; p.position.y += Math.sin(t * 3 + i) * 0.0008; });
       if (c.lid && this.state === 'choose') c.lid.rotation.z = (c.lid.userData.z0 ??= c.lid.rotation.z) + Math.sin(t * 1.6 + c.x) * 0.03;
     }

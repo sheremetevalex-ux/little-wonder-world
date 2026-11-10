@@ -14,7 +14,6 @@ import { sing } from './scenes/sing.js';
 import { cafe } from './scenes/cafe.js';
 import { salon } from './scenes/salon.js';
 import { atelier } from './scenes/atelier.js';
-import { lab } from './scenes/lab.js';
 import { dumplings } from './scenes/dumplings.js';
 import { eggs } from './scenes/eggs.js';
 import { squishy } from './scenes/squishy.js';
@@ -24,13 +23,15 @@ import { registerCustomDress } from './art/doll.js';
 import { setupPWA } from './pwa.js';
 import { save } from './core/save.js';
 import { audio } from './core/audio.js';
+import { gl } from './core/stage.js';
 
-Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album, sing, cafe, salon, atelier, lab, dumplings, eggs, squishy, hidden, jump });
+Object.assign(app.scenes, { splash, hub, dress, pet, cake, popit, slime, paint, garden, quest, album, sing, cafe, salon, atelier, dumplings, eggs, squishy, hidden, jump });
 (save.data.myDresses || []).forEach((d) => registerCustomDress(d.id, d.url));
 window.__wonder = app;
 window.__go = go;
 window.__save = save;
 window.__audio = audio;
+window.__gl = gl;
 
 start('splash');
 setupPWA();

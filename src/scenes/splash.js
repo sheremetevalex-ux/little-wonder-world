@@ -1,85 +1,76 @@
-// The first screen: Moko sleeps inside a shining bubble. One tap wakes the world,
-// and that tap is also what lets sound play on phones.
-import { app, go, hint, wait } from '../core/engine.js';
+// The first screen: Moko sleeps inside a shining soap bubble under the stars.
+// One tap wakes the world (and is also what lets sound play on phones): the
+// bubble pops, Moko wakes up with a happy little hop and off we go.
+import { app, go, hint, wait, tween } from '../core/engine.js';
 import { audio } from '../core/audio.js';
 import { fx } from '../core/fx.js';
-import { P, ell, glow, gloss, alpha, softStar } from '../core/draw.js';
-import { softBack } from '../art/world.js';
-import { drawCreature } from '../art/creatures.js';
+import { P, E, TAU, rand, pick } from '../core/draw.js';
+import { Stage, THREE, M, G, mesh, group, V, starShape } from '../core/stage.js';
+import { Critter } from '../art/critter3d.js';
 
 export const splash = {
-  tint: '#FFFFFF',
+  tint: '#3C2E9E',
   home: false,
   enter() {
     this.t = 0;
     this.popped = false;
-    this.stars = Array.from({ length: 34 }, (_, i) => ({ x: (i * 73.1) % 1, y: (i * 41.3) % 1, s: 1 + (i % 5) * 0.7, p: i * 1.3 }));
+    const st = this.stage = new Stage({ bg: [[0, '#2B2280'], [0.6, '#6A4FC0'], [1, '#FF9CC4']], fov: 34, hemi: 0.6, key: 2.2, keyColor: '#FFE9F6', rim: 1.6, rimColor: '#9FC4FF', shadowSize: 0 });
+    this.world = group(st.scene);
+    const m = this.moko = new Critter('moko', { size: 1, shadow: false });
+    m.sleep = true;
+    m.root.position.set(0, -0.95, 0);
+    this.world.add(m.root);
+    this.bubble = mesh(G.sphere(48), M.bubble({ opacity: 0.28 }), { s: 1.9, parent: this.world, cast: false });
+    this.bubble.renderOrder = 2;
+    this.stars = [];
+    for (let i = 0; i < 40; i++) {
+      const s = mesh(G.puffy('sstar', starShape(4, 1, 0.38), 0.2, 0.1), M.glow(pick(['#FFF2A8', '#FFFFFF', '#FFC4E8']), { opacity: 1 }), { p: [rand(-9, 9), rand(-5, 6), rand(-12, -4)], s: rand(0.05, 0.16), parent: this.world, cast: false });
+      s.userData.ph = rand(TAU);
+      this.stars.push(s);
+    }
+    st.frame(V(0, 0, 0), 6, 6, [0, 0, 1]);
     hint.set({ from: [app.W / 2, app.H * 0.5], delay: 1.1 });
     document.dispatchEvent(new CustomEvent('wonder:splash', { detail: true }));
   },
   exit() {
+    this.moko.dispose();
+    this.stage.dispose();
     document.dispatchEvent(new CustomEvent('wonder:splash', { detail: false }));
   },
-  update(dt) { this.t += dt; },
-  draw(c) {
-    const W = app.W, H = app.H, t = this.t;
-    const b = softBack('splash', W, H, '#3C2E9E', '#FF9CC4');
-    c.drawImage(b.cv, 0, 0, W, H);
-    for (const s of this.stars) {
-      const k = 0.5 + 0.5 * Math.sin(t * 2 + s.p);
-      softStar(c, s.x * W, s.y * H * 0.8, s.s * (1 + k), 4, 0.35);
-      c.fillStyle = `rgba(255,248,210,${0.35 + 0.6 * k})`;
-      c.fill();
-    }
-    const cx = W / 2, cy = H * 0.47 + Math.sin(t * 1.4) * 8, r = Math.min(W * 0.36, 150);
-    glow(c, cx, cy, r * 2, '#FFE6FF', 0.5);
-    if (this.popped) return;
-    c.save();
-    c.translate(cx, cy);
-    const pulse = 1 + Math.sin(t * 3) * 0.012;
-    c.scale(pulse, pulse);
-    drawCreature(c, 'moko', { R: r * 0.52, t: t * 0.5, eyes: 'closed', mouth: 'smile', sy: 1 + Math.sin(t * 1.5) * 0.015 });
-    // Dream bubbles
-    for (let i = 0; i < 3; i++) {
-      const u = (t * 0.28 + i / 3) % 1;
-      c.fillStyle = alpha('#FFFFFF', 0.8 * (1 - u));
-      ell(c, r * (0.34 + u * 0.3), -r * (0.3 + u * 0.46), 3 + u * 10);
-      c.fill();
-    }
-    // Rainbow soap skin
-    const g = c.createRadialGradient(-r * 0.3, -r * 0.38, r * 0.2, 0, 0, r);
-    g.addColorStop(0, 'rgba(255,255,255,.04)');
-    g.addColorStop(0.72, 'rgba(190,220,255,.1)');
-    g.addColorStop(0.92, 'rgba(255,190,240,.32)');
-    g.addColorStop(1, 'rgba(255,255,255,.85)');
-    c.fillStyle = g;
-    ell(c, 0, 0, r);
-    c.fill();
-    c.lineCap = 'round';
-    c.lineWidth = r * 0.055;
-    c.strokeStyle = 'rgba(255,255,255,.9)';
-    c.beginPath();
-    c.arc(0, 0, r * 0.87, Math.PI * 1.06, Math.PI * 1.46);
-    c.stroke();
-    gloss(c, r * 0.48, r * 0.54, r * 0.14, r * 0.07, 0.8, -0.8);
-    c.restore();
+  resize() { this.stage.frame(V(0, 0, 0), 6, 6, [0, 0, 1]); },
+  update(dt) {
+    this.t += dt;
+    const t = this.t;
+    this.world.position.y = Math.sin(t * 1.4) * 0.12;
+    if (!this.popped) this.bubble.scale.set(1.9 + Math.sin(t * 2.6) * 0.03, 1.9 - Math.sin(t * 2.6) * 0.03, 1.9);
+    this.bubble.rotation.y = t * 0.3;
+    for (const s of this.stars) s.scale.setScalar(0.05 + 0.08 * (0.5 + 0.5 * Math.sin(t * 2 + s.userData.ph)));
+    this.moko.look(this.popped ? this.stage.camera.position : null);
+    this.moko.update(dt);
   },
+  draw() {},
   down() {},
-  up(p) {
+  up() {
     if (this.popped) return;
     this.popped = true;
     audio.unlock();
     hint.clear();
-    const cx = app.W / 2, cy = app.H * 0.47;
+    const cx = app.W / 2, cy = app.H * 0.5;
+    tween(this.bubble.scale, { x: 2.6, y: 2.6, z: 2.6 }, 0.12, { done: () => { this.bubble.visible = false; } });
     fx.bubbles(cx, cy, 30);
     fx.sparkle(cx, cy, 30);
     fx.burst(cx, cy, { kind: 'star', n: 18, colors: [P.sun, P.butter, P.pink], speed: 340, size: 22, g: 200 });
+    const m = this.moko;
+    m.sleep = false;
+    m.setMood('wow', 0.5);
+    wait(0.15, () => { m.hop(7); m.setMood('happy', 1); });
     const play = () => {
       audio.sfx('bubble', { rate: 0.55, vol: 1 });
       audio.sparkle(0, 5, 0.5);
+      wait(0.2, () => m.say('yay', 0.7));
     };
     if (audio.ctx && audio.ctx.state !== 'running') audio.ctx.resume().then(play).catch(() => {});
     else play();
-    wait(0.26, () => go('hub', { intro: 1 }, { x: cx, y: cy }));
+    wait(0.85, () => go('hub', { intro: 1 }, { x: cx, y: cy }));
   }
 };

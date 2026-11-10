@@ -22,14 +22,14 @@ for (const [eng, dev, tag] of CONFIGS) {
   await page.screenshot({ path: `${OUT}/wonder-${tag}-splash.png` });
   const vp = page.viewportSize();
   await page.touchscreen.tap(vp.width / 2, vp.height / 2);
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(2600);
   await page.screenshot({ path: `${OUT}/wonder-${tag}-hub.png` });
   await page.evaluate(`Object.assign(window.__save.data,{friends:['moko','bunny','kitty','frog','panda','unicorn','dragon','bear','chick'],quest:18,stars:2})`);
   // Random-finger monkey test across every scene: a four-year-old is a great fuzzer
-  const scenes = ['dress', 'pet', 'cake', 'popit', 'slime', 'paint', 'garden', 'quest', 'sing', 'cafe', 'salon', 'atelier', 'album', 'hub'];
+  const scenes = ['dumplings', 'eggs', 'squishy', 'hidden', 'jump', 'dress', 'pet', 'cake', 'popit', 'slime', 'paint', 'garden', 'quest', 'sing', 'cafe', 'salon', 'atelier', 'album', 'hub'];
   for (const name of scenes) {
     await page.evaluate(`window.__go('${name}')`);
-    await page.waitForTimeout(850);
+    await page.waitForTimeout(1300);
     await page.screenshot({ path: `${OUT}/wonder-${tag}-${name}.png` });
     await page.evaluate(`(async()=>{
       const c=document.getElementById('game');
@@ -48,7 +48,8 @@ for (const [eng, dev, tag] of CONFIGS) {
     await page.waitForTimeout(300);
     const fps = await page.evaluate('window.__wonder.fps');
     const sc = await page.evaluate('window.__wonder.scene.name');
-    console.log(tag, name.padEnd(8), 'in', sc.padEnd(8), 'fps', fps.toFixed(0));
+    const calls = await page.evaluate('window.__gl.renderer && window.__wonder.scene.stage ? window.__gl.renderer.info.render.calls : 0');
+    console.log(tag, name.padEnd(9), 'in', sc.padEnd(9), 'fps', fps.toFixed(0), 'draws', calls);
   }
   console.log(tag, errors.length ? 'ERRORS\n' + [...new Set(errors)].join('\n') : 'no errors');
   await browser.close();
